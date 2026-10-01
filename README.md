@@ -1,6 +1,6 @@
-# tiny-webpack-typescript
+# TypeScript template
 
-A tiny template for TypeScript projects: strict TypeScript, ESLint and Prettier at their strictest, unit and mutation testing, and CI out of the box. Webpack supplies bundling, CSS support, and a dev server with HMR, but it is a thin, interchangeable layer - the TypeScript tooling is the substance of the template.
+A template for TypeScript projects: strict TypeScript, ESLint and Prettier, unit and mutation testing, and CI out of the box. Webpack supplies bundling, CSS support, and a dev server with HMR, but it is a thin, interchangeable layer - the TypeScript tooling is the substance of the template.
 
 ## Requirements
 
