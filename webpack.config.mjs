@@ -44,7 +44,7 @@ export default (env = {}) => {
 
 		plugins: [
 			// Auto generate HTML
-			new HtmlWebpackPlugin({ title: "tiny-webpack-typescript" }),
+			new HtmlWebpackPlugin({ title: "TypeScript template" }),
 		],
 
 		mode: env.prod ? "production" : "development",
