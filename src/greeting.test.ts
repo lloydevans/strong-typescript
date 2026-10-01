@@ -7,6 +7,6 @@ describe("greeting", () => {
 	});
 
 	it("greets by name", () => {
-		expect(greeting("Webpack")).toBe("Hello Webpack");
+		expect(greeting("Vite")).toBe("Hello Vite");
 	});
 });

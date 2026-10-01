@@ -4,10 +4,9 @@
 	"private": true,
 	"scripts": {
 		"start": "npm run serve",
-		"serve": "npx --no-install webpack serve",
-		"serve-prod": "npm run serve -- --env prod=true",
-		"build": "npx --no-install webpack",
-		"build-prod": "npm run build -- --env prod=true",
+		"serve": "npx --no-install vite",
+		"build": "npx --no-install vite build",
+		"preview": "npx --no-install vite preview",
 		"typecheck": "npx --no-install tsc --noEmit",
 		"lint": "npx --no-install eslint . --max-warnings 0",
 		"format": "npx --no-install prettier . --write",
@@ -15,28 +14,19 @@
 		"test": "npx --no-install vitest run",
 		"test-watch": "npx --no-install vitest",
 		"mutation": "npx --no-install stryker run",
-		"verify-gate": "npm audit --audit-level=critical && npm run lint && npm run format-check && npm run typecheck && npm test && npm run mutation && npm run build-prod"
-	},
-	"dependencies": {
-		"tslib": "^2.8.1"
+		"verify-gate": "npm audit --audit-level=critical && npm run lint && npm run format-check && npm run typecheck && npm test && npm run mutation && npm run build"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@stryker-mutator/core": "^10.0.0",
 		"@stryker-mutator/vitest-runner": "^10.0.0",
-		"css-loader": "7.1.4",
 		"eslint": "^10.8.0",
 		"globals": "^16.0.0",
-		"html-webpack-plugin": "^5.6.8",
 		"prettier": "^3.9.6",
-		"style-loader": "4.0.0",
-		"ts-loader": "^9.6.2",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.67.0",
-		"vitest": "^4.1.11",
-		"webpack": "^5.109.0",
-		"webpack-cli": "^7.2.2",
-		"webpack-dev-server": "6.0.0"
+		"vite": "^8.2.2",
+		"vitest": "^4.1.11"
 	},
 	"repository": {
 		"type": "git",
