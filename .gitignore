@@ -2,7 +2,7 @@
 node_modules/
 
 # Build output
-/build
+/dist
 
 # Test coverage
 coverage/

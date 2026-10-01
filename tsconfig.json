@@ -1,12 +1,10 @@
 {
 	"compilerOptions": {
 		"strict": true,
-		"importHelpers": true,
 		"moduleResolution": "bundler",
 		"lib": ["ES2023", "DOM", "DOM.Iterable"],
 		"target": "ES2022",
 		"module": "ESNext",
-		"sourceMap": true,
 		"isolatedModules": true,
 		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
