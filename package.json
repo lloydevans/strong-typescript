@@ -15,7 +15,6 @@
 		"test": "npx --no-install vitest run",
 		"test-watch": "npx --no-install vitest",
 		"mutation": "npx --no-install stryker run",
-		"mutation-bench": "npx --no-install stryker run benchmarks/mutation/stryker.config.mjs",
 		"verify-gate": "npm audit --audit-level=critical && npm run lint && npm run format-check && npm run typecheck && npm test && npm run mutation && npm run build-prod"
 	},
 	"dependencies": {

@@ -8,29 +8,20 @@ A template for TypeScript projects: strict TypeScript, ESLint and Prettier, unit
 
 ## Usage
 
-| Command                  | Description                                 |
-| ------------------------ | ------------------------------------------- |
-| `npm start`              | Dev server with hot reload (localhost:8080) |
-| `npm run serve-prod`     | Dev server with production build            |
-| `npm run build`          | Development build to `build/`               |
-| `npm run build-prod`     | Minified production build to `build/`       |
-| `npm run typecheck`      | Type-check without emitting                 |
-| `npm run lint`           | Lint with ESLint (warnings fail)            |
-| `npm run format`         | Format the repo with Prettier               |
-| `npm run format-check`   | Check formatting without writing            |
-| `npm test`               | Run unit tests once                         |
-| `npm run mutation`       | Mutation testing with Stryker               |
-| `npm run mutation-bench` | Stryker performance benchmark (see below)   |
-| `npm run verify-gate`    | Run the full CI gate locally                |
-| `npm run test-watch`     | Run unit tests in watch mode                |
-
-## Benchmarks
-
-`benchmarks/` holds on-demand automated benchmark workloads, one per subfolder. Their tests and mutants are excluded from the default test and mutation runs, so the CI gate lints, formats, and type-checks this code but never executes it; run the workloads manually via the Benchmarks workflow (workflow_dispatch) or locally.
-
-| Benchmark              | Command                  | Description                                                                                                                                              |
-| ---------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `benchmarks/mutation/` | `npm run mutation-bench` | Fixed Stryker workload (about 45 utility functions, 320 mutants, expected score 100%) for measuring mutation testing performance on a machine or runner. |
+| Command                | Description                                 |
+| ---------------------- | ------------------------------------------- |
+| `npm start`            | Dev server with hot reload (localhost:8080) |
+| `npm run serve-prod`   | Dev server with production build            |
+| `npm run build`        | Development build to `build/`               |
+| `npm run build-prod`   | Minified production build to `build/`       |
+| `npm run typecheck`    | Type-check without emitting                 |
+| `npm run lint`         | Lint with ESLint (warnings fail)            |
+| `npm run format`       | Format the repo with Prettier               |
+| `npm run format-check` | Check formatting without writing            |
+| `npm test`             | Run unit tests once                         |
+| `npm run mutation`     | Mutation testing with Stryker               |
+| `npm run verify-gate`  | Run the full CI gate locally                |
+| `npm run test-watch`   | Run unit tests in watch mode                |
 
 ## Notes
 
