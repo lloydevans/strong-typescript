@@ -33,6 +33,7 @@ See [README.md](README.md) for requirements and commands.
 
 - Keep each test beside the code it covers.
 - Every guard or fix needs a test that fails without it. Mutation testing checks this for the source it covers; where it does not reach, remove the guard or fix temporarily and confirm the test fails.
+- A test should be able to fail because of a change to code in this repository. If only a change in a dependency could fail it, leave it out.
 - Mutation testing can be slow, so it runs apart from the gate: on pull requests or on demand, as the project needs. Run `npm run mutation` locally at sensible intervals, such as after a series of commits for a pull request.
 
 ## Commits and pull requests
