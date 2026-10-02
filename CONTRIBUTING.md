@@ -28,6 +28,8 @@ Keep documents and comments true to the code in the same change. A contract live
 
 Run `npm run verify-gate` before every commit. `package.json` owns the exact commands. Keep strict type checking and warnings-as-errors lint enabled.
 
+Mutation testing can be slow, so it runs apart from the gate: on pull requests or on demand, as the project needs. Run `npm run mutation` locally at sensible intervals, such as after a series of commits for a pull request.
+
 Keep each test beside the code it covers.
 
 Every guard or fix needs a test that fails without it. Mutation testing checks this for the source it covers; where it does not reach, remove the guard or fix temporarily and confirm the test fails.

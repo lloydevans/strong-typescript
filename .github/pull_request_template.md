@@ -4,4 +4,4 @@
 
 ## Verification
 
-<!-- CI runs verify-gate, including typecheck, tests, mutation testing and the Vite production build. Note anything verified manually, e.g. dev server behavior. -->
+<!-- CI runs verify-gate and a separate mutation check. Note anything verified manually, e.g. dev server behavior. -->
