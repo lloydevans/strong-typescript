@@ -21,8 +21,10 @@
 		"@eslint/js": "^10.0.1",
 		"@stryker-mutator/core": "^10.0.0",
 		"@stryker-mutator/vitest-runner": "^10.0.0",
+		"@stylistic/eslint-plugin": "^5.10.0",
 		"@types/node": "^24.0.0",
 		"eslint": "^10.8.0",
+		"eslint-plugin-jsdoc": "^64.5.4",
 		"globals": "^16.0.0",
 		"jiti": "^2.7.0",
 		"prettier": "^3.9.6",
@@ -40,7 +42,7 @@
 	},
 	"homepage": "https://github.com/<ORG>/<REPO>#readme",
 	"engines": {
-		"node": ">=24.0.0"
+		"node": ">=24.15.0"
 	},
 	"prettier": {
 		"useTabs": true,

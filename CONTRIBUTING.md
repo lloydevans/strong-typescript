@@ -22,6 +22,16 @@ Separate a function's logical blocks with a blank line, such as between checking
 
 A line comment belongs directly above the code it describes, inside that logical block. Preserve the separating blank line above the comment; the comment never takes its place.
 
+Document purpose, parameters, results and failures with JSDoc, without repeating TypeScript types.
+
+Inline callbacks need no JSDoc.
+
+Document an object's function members on its declared type, not on the implementation.
+
+Document a constructor parameter property once, in the constructor's `@param`.
+
+Tests need no JSDoc.
+
 Keep documents and comments true to the code in the same change. A contract lives in the code or configuration that owns it. Documents cite that owner and do not restate it.
 
 ## Verification and commits

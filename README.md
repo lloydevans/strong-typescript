@@ -6,7 +6,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor conventions.
 
 ## Requirements
 
-- Node.js >= 24 (current LTS)
+- Node.js >= 24.15.0 (current LTS)
 
 ## Usage
 
