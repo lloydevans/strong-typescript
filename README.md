@@ -2,6 +2,8 @@
 
 A template for TypeScript projects: strict TypeScript, ESLint and Prettier, unit and mutation testing, and CI out of the box. Vite supplies bundling, CSS support, and a dev server with HMR, but it is a thin, interchangeable layer - the TypeScript tooling is the substance of the template.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor conventions.
+
 ## Requirements
 
 - Node.js >= 24 (current LTS)
