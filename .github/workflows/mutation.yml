@@ -1,0 +1,56 @@
+name: Mutation
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, ready_for_review, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || (github.event_name == 'push' && 'master') || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  mutation:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache/restore@v6
+        if: github.event_name != 'push'
+        with:
+          path: reports/stryker-incremental.json
+          key: mutation-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: mutation-${{ runner.os }}-
+      - name: Run incremental mutation testing
+        if: github.event_name != 'push'
+        run: npm run mutation
+      - name: Rebuild mutation results
+        if: github.event_name == 'push'
+        run: npm run mutation -- --force
+      # Runs on master go one at a time and only the tip saves, so an older run cannot replace newer results.
+      - name: Check baseline revision
+        id: master-tip
+        if: ${{ !cancelled() && github.event_name == 'push' && hashFiles('reports/stryker-incremental.json') != '' }}
+        shell: bash
+        run: |
+          tip=$(git ls-remote --exit-code origin refs/heads/master)
+          if [[ "${tip%%$'\t'*}" == "$GITHUB_SHA" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/cache/save@v6
+        if: ${{ !cancelled() && steps.master-tip.outputs.current == 'true' }}
+        with:
+          path: reports/stryker-incremental.json
+          key: mutation-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
