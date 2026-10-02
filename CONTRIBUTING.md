@@ -21,6 +21,7 @@ See [README.md](README.md) for requirements and commands.
 
 ## Comments and documentation
 
+- Keep comments brief and do not over-explain.
 - A line comment belongs directly above the code it describes, inside that logical block. Preserve the separating blank line above the comment; the comment never takes its place.
 - Document purpose, parameters, results and failures with JSDoc, without repeating TypeScript types.
 - Inline callbacks need no JSDoc.
