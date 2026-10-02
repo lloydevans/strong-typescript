@@ -1,14 +1,10 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"strict": true,
-		"moduleResolution": "bundler",
-		"lib": ["ES2023", "DOM", "DOM.Iterable"],
-		"target": "ES2022",
-		"module": "ESNext",
-		"isolatedModules": true,
-		"verbatimModuleSyntax": true,
-		"skipLibCheck": true,
-		"noUncheckedIndexedAccess": true
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"lib": ["ES2023"],
+		"types": ["node"]
 	},
-	"include": ["src", "vitest.config.mts"]
+	"include": ["eslint.config.mts", "stryker.config.mts", "vitest.config.mts", "scripts/**/*.mts"]
 }

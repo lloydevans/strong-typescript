@@ -13,8 +13,9 @@ A template for TypeScript projects: strict TypeScript, ESLint and Prettier, unit
 | `npm start`            | Dev server with hot reload (localhost:5173 by default) |
 | `npm run build`        | Minified production build to `dist/`                   |
 | `npm run preview`      | Serve the built site (localhost:4173 by default)       |
-| `npm run typecheck`    | Type-check without emitting                            |
+| `npm run typecheck`    | Type-check browser source and tooling without emitting |
 | `npm run lint`         | Lint with ESLint (warnings fail)                       |
+| `npm run lint-fix`     | Apply ESLint's automatic fixes                         |
 | `npm run format`       | Format the repo with Prettier                          |
 | `npm run format-check` | Check formatting without writing                       |
 | `npm test`             | Run unit tests once                                    |

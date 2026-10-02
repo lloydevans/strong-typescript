@@ -7,21 +7,24 @@
 		"serve": "npx --no-install vite",
 		"build": "npx --no-install vite build",
 		"preview": "npx --no-install vite preview",
-		"typecheck": "npx --no-install tsc --noEmit",
-		"lint": "npx --no-install eslint . --max-warnings 0",
+		"typecheck": "npx --no-install tsc --noEmit -p src/tsconfig.json && npx --no-install tsc --noEmit -p tsconfig.json",
+		"lint": "npx --no-install eslint . --ext .js,.cjs,.ts,.mts,.tsx,.cts --max-warnings 0",
+		"lint-fix": "npx --no-install eslint . --ext .js,.cjs,.ts,.mts,.tsx,.cts --max-warnings 0 --fix",
 		"format": "npx --no-install prettier . --write",
 		"format-check": "npx --no-install prettier . --check",
 		"test": "npx --no-install vitest run",
 		"test-watch": "npx --no-install vitest",
-		"mutation": "npx --no-install stryker run",
+		"mutation": "npx --no-install stryker run stryker.config.mts",
 		"verify-gate": "npm audit --audit-level=critical && npm run lint && npm run format-check && npm run typecheck && npm test && npm run mutation && npm run build"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@stryker-mutator/core": "^10.0.0",
 		"@stryker-mutator/vitest-runner": "^10.0.0",
+		"@types/node": "^24.0.0",
 		"eslint": "^10.8.0",
 		"globals": "^16.0.0",
+		"jiti": "^2.7.0",
 		"prettier": "^3.9.6",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.67.0",
@@ -41,6 +44,6 @@
 	},
 	"prettier": {
 		"useTabs": true,
-		"printWidth": 140
+		"printWidth": 130
 	}
 }
