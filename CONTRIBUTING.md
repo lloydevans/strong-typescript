@@ -9,6 +9,7 @@ See [README.md](README.md) for requirements and commands.
 
 ## Code
 
+- Give every fact one home, in code, comments or documents, and refer to it from elsewhere. A copy has to be maintained and goes stale.
 - Use `.mts` wherever a repository-owned file would otherwise be `.mjs`, so the TypeScript configuration covers it.
 - Prefer a built-in array method, such as `.map`, `.filter` or `.reduce`, to a hand-written loop wherever one expresses the transformation.
 - Separate a function's logical blocks with a blank line, such as between checking input, computing a result and writing it out.
@@ -28,7 +29,7 @@ See [README.md](README.md) for requirements and commands.
 - Document an object's function members on its declared type, not on the implementation.
 - Document a constructor parameter property once, in the constructor's `@param`.
 - Tests need no JSDoc.
-- Keep documents and comments true to the code in the same change. A contract lives in the code or configuration that owns it. Documents cite that owner and do not restate it.
+- Keep documents and comments true to the code in the same change.
 
 ## Testing
 
