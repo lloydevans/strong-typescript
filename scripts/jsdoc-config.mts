@@ -19,7 +19,7 @@ const typeMembers =
 /** Cover additional declarations and the members of named types. */
 const declarations = `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ExportNamedDeclaration, ExportDefaultDeclaration, ExportAllDeclaration, TSExportAssignment, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions})`;
 
-/** Class fields need comments; constructor parameter properties use their constructor's parameter tags. */
+/** Require comments on class fields. */
 const classProperties =
 	":matches(PropertyDefinition, TSAbstractPropertyDefinition, AccessorProperty, TSAbstractAccessorProperty)";
 

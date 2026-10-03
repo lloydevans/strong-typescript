@@ -39,11 +39,16 @@ export class Greeter {
 	/** The opening word shared by every greeting. */
 	private readonly prefix = "Hello";
 
+	/** The formatting policy for recipient names and messages. */
+	private readonly style: GreetingStyle;
+
 	/**
 	 * Choose how recipient names and messages are presented.
 	 * @param style - The formatting policy used for every call.
 	 */
-	constructor(private readonly style: GreetingStyle = plainStyle) {}
+	constructor(style: GreetingStyle = plainStyle) {
+		this.style = style;
+	}
 
 	/**
 	 * Greet recipients in order without modifying the supplied list.

@@ -3,6 +3,7 @@
 		"strict": true,
 		"target": "ES2022",
 		"isolatedModules": true,
+		"erasableSyntaxOnly": true,
 		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
 		"noUncheckedIndexedAccess": true,

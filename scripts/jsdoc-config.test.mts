@@ -245,25 +245,6 @@ test("keeps nested accessors outside the direct object-function exemption", asyn
 	expect(await violations("({ inner: { get value() { return 1; } } });")).toEqual(["jsdoc/require-jsdoc"]);
 });
 
-test("documents a parameter property once through the constructor", async () => {
-	const source = `/** Retain operation state. */
-class State {
-/**
- * Set the queue limit.
- * @param limit - Maximum queued operations.
- */
-constructor(private readonly limit: number) {}
-}`;
-
-	expect(await violations(source)).toEqual([]);
-
-	const field = source
-		.replace("class State {", "class State {\nlimit: number;")
-		.replace("constructor(private readonly limit: number)", "constructor(limit: number)");
-
-	expect(await violations(field)).toEqual(["jsdoc/require-jsdoc"]);
-});
-
 test("the no-tag-types selector covers tags outside parameters and returns", async () => {
 	const source =
 		"/**\n * Refuse unsupported input.\n * @throws {@link Error} When input cannot be accepted.\n */\nfunction refuse() { throw Error(); }";

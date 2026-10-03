@@ -28,7 +28,6 @@ See [README.md](README.md) for requirements and commands.
 - Document purpose, parameters, results and failures with JSDoc, without repeating TypeScript types.
 - Inline callbacks need no JSDoc.
 - Document an object's function members on its declared type, not on the implementation.
-- Document a constructor parameter property once, in the constructor's `@param`.
 - Tests need no JSDoc.
 - Keep documents and comments true to the code in the same change.
 
