@@ -3,7 +3,14 @@ import tseslint from "typescript-eslint";
 import { expect, test } from "vitest";
 import { createDocumentationConfig } from "./jsdoc-config.mjs";
 
-const eslint = new ESLint({ overrideConfig: tseslint.configs.disableTypeChecked });
+const shippedEslint = new ESLint({ overrideConfig: tseslint.configs.disableTypeChecked });
+const eslint = new ESLint({
+	overrideConfigFile: true,
+	overrideConfig: [
+		...createDocumentationConfig(false),
+		{ languageOptions: { parser: tseslint.parser, parserOptions: { ecmaFeatures: { jsx: true } } } },
+	],
+});
 const publicEslint = new ESLint({
 	overrideConfigFile: true,
 	overrideConfig: [...createDocumentationConfig(true), { languageOptions: { parser: tseslint.parser } }],
@@ -15,14 +22,17 @@ async function violations(source: string, filePath = "src/documentation-example.
 	expect(results[0]?.fatalErrorCount).toBe(0);
 
 	return results.flatMap((result) =>
-		result.messages.filter((message) => message.ruleId?.startsWith("jsdoc/")).map((message) => message.ruleId),
+		result.messages
+			.filter((message) => message.ruleId === "no-restricted-syntax" || message.ruleId?.startsWith("jsdoc/"))
+			.map((message) => message.ruleId),
 	);
 }
 
 test.each([
 	["FunctionDeclaration", "", "function run() {}", 1],
-	["FunctionExpression", "", "const run = function () {};", 2],
-	["ArrowFunctionExpression", "", "const run = () => {};", 2],
+	["module-level function expression", "", "const run = function () {};", 1],
+	["module-level arrow", "", "const run = () => {};", 1],
+	["exported function constant", "", "export const run = () => {};", 1],
 	["ClassDeclaration", "", "class State {}", 1],
 	["ClassExpression", "", "const State = class {};", 2],
 	["MethodDefinition", "/** Retain state. */ class State {", "run() {} }", 2],
@@ -49,7 +59,7 @@ test.each([
 	["TSExportAssignment", "", "export = value;", 1],
 	["TSNamespaceExportDeclaration", "", "export as namespace Library;", 1],
 ])("covers the configured %s declaration", async (_node, prefix, declaration, count) => {
-	// Methods and module-level function values have overlapping coverage; either check being removed must fail.
+	// Methods and class-valued variables have overlapping coverage; either check being removed must fail.
 	expect(await violations(`${prefix}\n${declaration}`)).toEqual(Array.from({ length: count }, () => "jsdoc/require-jsdoc"));
 	expect(await violations(`${prefix}\n/** Define the operation's state or behavior. */\n${declaration}`)).toEqual([]);
 });
@@ -159,23 +169,147 @@ test("requires module-level variables but not variables inside functions", async
 	expect(await violations("/** Start the operation. */\nfunction run() { const count = 0; }")).toEqual([]);
 });
 
-test("documents an inline parameter type through its parameter tags", async () => {
-	const source =
-		"/**\n * Apply options.\n * @param options - The supplied options.\n * @param options.limit - Maximum operations.\n */\nexport type Apply = (options: { limit: number }) => void;";
-
-	expect(await violations(source)).toEqual([]);
-	expect(await violations(source.replace(" * @param options.limit - Maximum operations.\n", ""))).toEqual([
-		"jsdoc/require-param",
-	]);
-	expect(await violations("/** Bound operations. */\ntype Options = { limit: number };")).toEqual(["jsdoc/require-jsdoc"]);
-});
-
-test.each(["type Rows<T extends { id: number }> = T;", "type Rows = { id: number }[];"])(
-	"exempts nested type literals: %s",
-	async (declaration) => {
-		expect(await violations(`/** Describe rows. */\n${declaration}`)).toEqual([]);
+test.each(["(options: { limit: number }) => options.limit", "function (options: { limit: number }) { return options.limit; }"])(
+	"exempts functions assigned to local variables: %s",
+	async (implementation) => {
+		expect(await violations(`/** Run a job. */\nfunction run() { const read = ${implementation}; }`)).toEqual([]);
 	},
 );
+
+test.each(["return async function read() {};", "function read() {} return read;"])(
+	"requires documentation on returned functions without a variable: %s",
+	async (body) => {
+		expect(
+			await violations(`/**\n * Prepare a reader.\n * @returns The read operation.\n */\nfunction create() { ${body} }`),
+		).toEqual(["jsdoc/require-jsdoc"]);
+	},
+);
+
+test("checks tags on documented local function variables", async () => {
+	const source =
+		"/** Run a job. */\nfunction run() {\n/**\n * Read a value.\n * @param name - The requested name.\n * @returns The requested value.\n */\nconst read = (name: string) => name;\n}";
+
+	expect(await violations(source)).toEqual([]);
+	expect(await violations(source.replace(" * @param name - The requested name.\n", ""))).toEqual(["jsdoc/require-param"]);
+	expect(await violations(source.replace(" * @returns The requested value.\n", ""))).toEqual(["jsdoc/require-returns"]);
+});
+
+test.each([
+	"options: TYPE",
+	"{ limit }: TYPE",
+	"options: TYPE = { limit: 1 }",
+	"{ limit }: TYPE = { limit: 1 }",
+	"...options: unknown[] & TYPE",
+	"options: Base & (Other | (Extra & (TYPE | undefined)))",
+])("documents inline parameter members with one parameter tag: %s", async (parameter) => {
+	const source = `/**\n * Apply options.\n * @param options - The supplied options.\n */\nfunction apply(${parameter.replace("TYPE", "{\nlimit: number;\n}")}) {}`;
+	const documented = source.replace("limit: number;", "/** Maximum operations. */\nlimit: number;");
+
+	expect(await violations(source)).toEqual(["jsdoc/require-jsdoc"]);
+	expect(await violations(documented)).toEqual([]);
+	expect(await violations(documented.replace(" * @param options - The supplied options.\n", ""))).toEqual([
+		"jsdoc/require-param",
+	]);
+});
+
+test.each([
+	[
+		"parameter container",
+		"/**\n * Run a job.\n * @param items - The supplied records.\n */\nfunction run(items: { MEMBER }[]) {}",
+	],
+	["return type", "/**\n * Load a record.\n * @returns The stored record.\n */\nfunction load(): { MEMBER } { return record; }"],
+	["alias array", "/** Describe records. */\ntype Records = { MEMBER }[];"],
+	["alias tuple", "/** Describe records. */\ntype Records = [{ MEMBER }];"],
+	["alias generic argument", "/** Describe records. */\ntype Records = Readonly<{ MEMBER }>;"],
+	["alias constraint", "/** Describe records. */\ntype Records<T extends { MEMBER }> = T;"],
+	["interface member type", "/** Describe records. */\ninterface Records {\n/** Stored entries. */\nitems: { MEMBER }[];\n}"],
+	["class member type", "/** Store records. */\nclass Records {\n/** Stored entries. */\nitems: { MEMBER }[];\n}"],
+	["class index value", "/** Store records. */\nclass Records {\n/** Named entries. */\n[key: string]: { MEMBER };\n}"],
+	["class constraint", "/** Store records. */\nclass Records<T extends { MEMBER }> {}"],
+	["base class argument", "/** Store records. */\nclass Records extends Base<{ MEMBER }> {}"],
+	["implemented type argument", "/** Store records. */\nclass Records implements Base<{ MEMBER }> {}"],
+	["function constraint", "/** Run a job. */\nfunction run<T extends { MEMBER }>() {}"],
+	[
+		"declared function parameter",
+		"/**\n * Run a job.\n * @param options - The supplied options.\n */\ndeclare function run(options: { MEMBER }): void;",
+	],
+	[
+		"abstract method parameter",
+		"/** Describe operations. */\nabstract class Operations {\n/**\n * Run a job.\n * @param options - The supplied options.\n */\nabstract run(options: { MEMBER }): void;\n}",
+	],
+	["module variable type", "/** Store a record. */\nconst record: { MEMBER } = value;"],
+	["exported variable type", "/** Store a record. */\nexport const record: { MEMBER } = value;"],
+	[
+		"namespace variable type",
+		"/** Group records. */\nnamespace Records {\n/** Store a record. */\nconst record: { MEMBER } = value;\n}",
+	],
+	[
+		"nested callback parameter",
+		"/**\n * Run a job.\n * @param callback - The operation to invoke.\n */\nfunction run(callback: (options: { MEMBER }) => void) {}",
+	],
+	[
+		"nested callback result",
+		"/**\n * Run a job.\n * @param callback - The operation to invoke.\n */\nfunction run(callback: () => { MEMBER }) {}",
+	],
+	[
+		"inline method parameter",
+		"/**\n * Run a job.\n * @param options - The supplied options.\n */\nfunction run(options: {\n/**\n * Apply settings.\n * @param input - The supplied settings.\n */\napply(input: { MEMBER }): void;\n}) {}",
+	],
+	[
+		"function type alias",
+		"/**\n * Describe an operation.\n * @param options - The supplied options.\n */\ntype Apply = (options: { MEMBER }) => void;",
+	],
+])("documents inline members in a %s", async (_kind, source) => {
+	expect(await violations(source.replace("MEMBER", "limit: number;"))).toEqual(["jsdoc/require-jsdoc"]);
+	expect(await violations(source.replace("MEMBER", "/** Maximum operations. */\nlimit: number;"))).toEqual([]);
+});
+
+test.each([
+	"const record: { id: number } = value;",
+	"value as { id: number };",
+	"value satisfies { id: number };",
+	"accept<{ id: number }>(value);",
+])("exempts types inside an implementation: %s", async (body) => {
+	expect(await violations(`/** Run a job. */\nfunction run() { ${body} }`)).toEqual([]);
+});
+
+test("documents local type aliases and their members", async () => {
+	const source = "/** Run a job. */\nfunction run() {\ntype Options = {\nlimit: number;\n};\n}";
+	const results = await eslint.lintText(source, { filePath: "src/documentation-example.ts" });
+
+	expect(results).toMatchObject([
+		{
+			fatalErrorCount: 0,
+			messages: [
+				{ ruleId: "jsdoc/require-jsdoc", line: 3 },
+				{ ruleId: "jsdoc/require-jsdoc", line: 4 },
+			],
+		},
+	]);
+	expect(
+		await violations(
+			source
+				.replace("type Options", "/** Bound operations. */\ntype Options")
+				.replace("limit:", "/** Maximum operations. */\nlimit:"),
+		),
+	).toEqual([]);
+});
+
+test("exempts a conditional type's matching pattern", async () => {
+	expect(await violations("/** Extract a record's identifier. */\ntype Id<T> = T extends { id: infer U } ? U : never;")).toEqual(
+		[],
+	);
+});
+
+test("delegates inline parameter members to the plugin's public-only behavior", async () => {
+	const source = "function run(options: { limit: number }) {}";
+	const documentation = "/**\n * Run a job.\n * @param options - The supplied options.\n */\n";
+
+	expect(await violations(source, "src/example.ts", publicEslint)).toEqual([]);
+	expect(await violations(`export ${source}`, "src/example.ts", publicEslint)).toEqual(Array(3).fill("jsdoc/require-jsdoc"));
+	expect(await violations(`${documentation}export ${source}`, "src/example.ts", publicEslint)).toEqual([]);
+	expect(await violations(`${documentation}export ${source}`)).toEqual(["jsdoc/require-jsdoc"]);
+});
 
 test.each([
 	"type Options = { limit: number } | string;",
@@ -212,7 +346,7 @@ test.each(["value = 1;", "abstract value: number;", "accessor value = 1;", "abst
 );
 
 test.each(["register", "new Handler"])("exempts direct inline callbacks to %s, not array elements", async (call) => {
-	expect(await violations(`${call}(() => {}, function () {});`)).toEqual([]);
+	expect(await violations(`${call}((options: { limit: number }) => {}, function (options: { limit: number }) {});`)).toEqual([]);
 	expect(await violations("[function () {}];")).toContain("jsdoc/require-jsdoc");
 });
 
@@ -231,15 +365,16 @@ test.each(["() => {}", "function () {}"])("exempts only direct JSX attribute han
 	]);
 });
 
-test.each(["run: () => {}", "run: function () {}", "run() {}"])(
-	"exempts object function properties but not accessors: %s",
-	async (member) => {
-		expect(await violations(`/** Provide operation handlers. */\nconst handler = { ${member} };`)).toEqual([]);
-		expect(await violations("/** Expose operation state. */\nconst handler = { get value() { return 1; } };")).toContain(
-			"jsdoc/require-jsdoc",
-		);
-	},
-);
+test.each([
+	"run: (options: { limit: number }) => {}",
+	"run: function (options: { limit: number }) {}",
+	"run(options: { limit: number }) {}",
+])("exempts object function properties but not accessors: %s", async (member) => {
+	expect(await violations(`/** Provide operation handlers. */\nconst handler = { ${member} };`)).toEqual([]);
+	expect(await violations("/** Expose operation state. */\nconst handler = { get value() { return 1; } };")).toContain(
+		"jsdoc/require-jsdoc",
+	);
+});
 
 test("keeps nested accessors outside the direct object-function exemption", async () => {
 	expect(await violations("({ inner: { get value() { return 1; } } });")).toEqual(["jsdoc/require-jsdoc"]);
@@ -285,7 +420,8 @@ test.each([
 });
 
 test("turns documentation coverage off throughout test files", async () => {
-	const source = "function helper() {} class State { value = 1; run() {} } test('case', () => { const local = () => {}; });";
+	const source =
+		"function helper(options: { limit: number }) {} class State { value = 1; run() {} } test('case', () => { const local = () => {}; });";
 
 	expect(await violations(source, "scripts/documentation-example.test.mts")).toEqual([]);
 	expect(await violations(source)).toContain("jsdoc/require-jsdoc");
@@ -294,22 +430,23 @@ test("turns documentation coverage off throughout test files", async () => {
 test("covers .mjs files without requiring a TypeScript project", async () => {
 	const linter = new ESLint();
 
-	expect(
-		await violations("/** Start the operation. */\nconst run = () => {};", "scripts/documentation-example.mjs", linter),
-	).toEqual([]);
-	expect(await violations("const run = () => {};", "scripts/documentation-example.mjs", linter)).toContain("jsdoc/require-jsdoc");
+	expect(await violations("/** Start the operation. */\nfunction run() {}", "scripts/documentation-example.mjs", linter)).toEqual(
+		[],
+	);
+	expect(await violations("function run() {}", "scripts/documentation-example.mjs", linter)).toContain("jsdoc/require-jsdoc");
 });
 
 test("wires the documentation fragments into the shipped configuration", async () => {
-	const production: unknown = await eslint.calculateConfigForFile("src/greeting.ts");
-	const tests: unknown = await eslint.calculateConfigForFile("src/greeting.test.ts");
+	const production: unknown = await shippedEslint.calculateConfigForFile("src/greeting.ts");
+	const tests: unknown = await shippedEslint.calculateConfigForFile("src/greeting.test.ts");
 
 	expect(production).toHaveProperty(["rules", "jsdoc/require-jsdoc", 1, "contexts", "length"], 3);
+	expect(production).toHaveProperty(["rules", "jsdoc/require-jsdoc", 1, "publicOnly"], false);
 	expect(tests).toHaveProperty(["rules", "jsdoc/require-jsdoc", 0], 0);
 });
 
 test.each(["function run() {}", "class State { value = 1; run() {} }"])(
-	"defaults to documenting internal declarations, with public-only coverage opt-in: %s",
+	"supports full and public-only documentation coverage: %s",
 	async (source) => {
 		expect(await violations(source)).toContain("jsdoc/require-jsdoc");
 		expect(await violations(source, "scripts/documentation-example.mts", publicEslint)).toEqual([]);

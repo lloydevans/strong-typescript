@@ -12,16 +12,24 @@ const inlineCallbacks =
 /** An object's declared type documents function-valued properties; accessors still need their own documentation. */
 const objectFunctions = 'ObjectExpression > Property[kind="init"] > :matches(FunctionExpression, ArrowFunctionExpression).value';
 
-/** Named type members include union and intersection branches outside containers. */
-const typeMembers =
-	":matches(ClassBody, TSInterfaceBody, TSTypeAliasDeclaration TSTypeLiteral):not(TSTypeAliasDeclaration :not(TSUnionType, TSIntersectionType) *) > :matches(TSMethodSignature, TSPropertySignature, TSCallSignatureDeclaration, TSConstructSignatureDeclaration, TSIndexSignature)";
-
-/** Cover additional declarations and the members of named types. */
-const declarations = `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ExportNamedDeclaration, ExportDefaultDeclaration, ExportAllDeclaration, TSExportAssignment, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions})`;
+/** A function variable is documented by its declaration or enclosing function. */
+const variableFunctions = "VariableDeclarator > :matches(FunctionExpression, ArrowFunctionExpression).init";
 
 /** Require comments on class fields. */
 const classProperties =
 	":matches(PropertyDefinition, TSAbstractPropertyDefinition, AccessorProperty, TSAbstractAccessorProperty)";
+
+/** Select callables whose parameter and return types own their documentation. */
+const documentedFunctions = `:matches(:function, TSDeclareFunction, TSEmptyBodyFunctionExpression):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
+
+/** Enter declared types without entering initializers or function bodies. */
+const declaredTypes = `:matches(TSTypeAliasDeclaration, TSInterfaceDeclaration, ClassBody > TSIndexSignature, ${classProperties} > TSTypeAnnotation, :matches(ClassDeclaration, ClassExpression, ${documentedFunctions}) > :matches(TSTypeAnnotation, TSTypeParameterDeclaration, TSTypeParameterInstantiation, TSClassImplements), ${documentedFunctions} > *.params > TSTypeAnnotation, ${documentedFunctions} > AssignmentPattern.params > *.left > TSTypeAnnotation, :matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration > VariableDeclarator > *.id > TSTypeAnnotation)`;
+
+/** Document members at every type depth, except conditional matching patterns. */
+const typeMembers = `:matches(ClassBody, TSInterfaceBody, ${declaredTypes} TSTypeLiteral) > :matches(TSMethodSignature, TSPropertySignature, TSCallSignatureDeclaration, TSConstructSignatureDeclaration, TSIndexSignature):not(TSConditionalType > *.extendsType *)`;
+
+/** Cover additional declarations and the members of named types. */
+const declarations = `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ExportNamedDeclaration, ExportDefaultDeclaration, ExportAllDeclaration, TSExportAssignment, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
 
 /** Preserve the plugin's function contexts and check type contracts, not just their implementations. */
 const functionContexts = [
@@ -79,7 +87,11 @@ export function createDocumentationConfig(publicOnly = documentPublicOnly) {
 						require: { FunctionDeclaration: true, ClassDeclaration: true, ClassExpression: true },
 					},
 				],
-				"jsdoc/require-param": ["error", { contexts: [...functionContexts, signatures, functionFields], checkSetters: true }],
+				"jsdoc/check-param-names": ["error", { checkDestructured: false }],
+				"jsdoc/require-param": [
+					"error",
+					{ contexts: [...functionContexts, signatures, functionFields], checkSetters: true, checkDestructured: false },
+				],
 				"jsdoc/require-returns": [
 					"error",
 					{

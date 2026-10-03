@@ -11,7 +11,17 @@ export default defineConfig(
 	tseslint.configs.strictTypeChecked,
 	tseslint.configs.stylisticTypeChecked,
 	{
-		rules: { "@typescript-eslint/member-ordering": "error" },
+		rules: {
+			"@typescript-eslint/member-ordering": "error",
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector:
+						":matches(:matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration > VariableDeclarator > :matches(FunctionExpression, ArrowFunctionExpression, :matches(TSSatisfiesExpression, TSAsExpression, TSNonNullExpression)[expression.type=/^(FunctionExpression|ArrowFunctionExpression)$/]).init, ExportDefaultDeclaration > :matches(FunctionExpression, ArrowFunctionExpression).declaration)",
+					message: "Write a function declaration for a module-level function.",
+				},
+			],
+		},
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
