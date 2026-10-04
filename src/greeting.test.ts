@@ -1,12 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { greeting } from "./greeting";
+import { Greeter, type GreetingStyle } from "./greeting";
 
-describe("greeting", () => {
+describe("Greeter", () => {
 	it("greets the world by default", () => {
-		expect(greeting()).toBe("Hello World");
+		expect(new Greeter().greet()).toBe("Hello World");
 	});
 
-	it("greets by name", () => {
-		expect(greeting("Vite")).toBe("Hello Vite");
+	it("normalizes names and preserves their order without changing the input", () => {
+		const greeter = new Greeter();
+		const names = [" Vite ", "Ada"];
+		const render = () => greeter.greet(names);
+
+		expect(render()).toBe("Hello Vite\nHello Ada");
+		expect(render()).toBe("Hello Vite\nHello Ada");
+		expect(names).toEqual([" Vite ", "Ada"]);
+	});
+
+	it("returns empty text for an empty recipient list", () => {
+		expect(new Greeter().greet([])).toBe("");
+	});
+
+	it.each(["", " ", "\t"])("refuses blank names without affecting a later call: %j", (name) => {
+		const greeter = new Greeter();
+		expect(() => greeter.greet(["Ada", name])).toThrow("Recipient must not be blank");
+		expect(greeter.greet(["Lin"])).toBe("Hello Lin");
+	});
+
+	it.each(["", " ", "\t"])("uses the supplied policy without accepting blank names: %j", (name) => {
+		const style: GreetingStyle = {
+			normalize: (name) => name.toUpperCase(),
+			format: function (prefix, name) {
+				return `${prefix}: ${name}!`;
+			},
+			join(messages) {
+				return messages.join(" | ");
+			},
+		};
+		const greeter = new Greeter(style);
+
+		expect(() => greeter.greet(["Ada", name])).toThrow("Recipient must not be blank");
+		expect(greeter.greet([" Ada ", "Lin"])).toBe("Hello:  ADA ! | Hello: LIN!");
 	});
 });

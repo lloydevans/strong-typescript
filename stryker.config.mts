@@ -1,8 +1,10 @@
 import type { Stryker } from "@stryker-mutator/core";
 
-// Mutation testing config: https://stryker-mutator.io/docs/stryker-js/configuration/
-// index.ts is excluded: it is the DOM bootstrap entry point, exercised by the
-// build and dev server rather than unit tests, so its mutants are never covered.
+/**
+ * Configure mutation testing: https://stryker-mutator.io/docs/stryker-js/configuration/
+ * index.ts is excluded: it is the DOM bootstrap entry point, exercised by the
+ * build and dev server rather than unit tests, so its mutants are never covered.
+ */
 const config = {
 	testRunner: "vitest",
 	mutate: ["src/**/*.ts", "!src/**/*.test.ts", "!src/index.ts"],
@@ -10,4 +12,5 @@ const config = {
 	reporters: ["clear-text", "progress", "html"],
 } satisfies ConstructorParameters<typeof Stryker>[0];
 
+/** Check test effectiveness over non-bootstrap application source. */
 export default config;
