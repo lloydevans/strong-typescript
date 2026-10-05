@@ -43,6 +43,13 @@ it.each([
 	[0, "Nobody"],
 	[1, "1 recipient"],
 	[2, "2 recipients"],
+	[Number.MAX_SAFE_INTEGER, "9007199254740991 recipients"],
 ])("summarizes %i recipients", (count, expected) =>
 	expect(recipientSummary({ count, empty: "Nobody", singular: "recipient", plural: "recipients" })).toBe(expected),
+);
+
+it.each([-1, 0.5, NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1])("refuses an invalid recipient count: %s", (count) =>
+	expect(() => recipientSummary({ count, empty: "Nobody", singular: "recipient", plural: "recipients" })).toThrow(
+		"Recipient count must be a nonnegative safe integer",
+	),
 );
