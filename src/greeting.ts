@@ -65,3 +65,37 @@ export class Greeter {
 		return this.style.join(normalized.map((name) => this.style.format(this.prefix, name)));
 	}
 }
+
+/**
+ * Describe how many recipients will be greeted.
+ * @param options - The recipient count and the words used to describe it.
+ * @returns The empty text for zero recipients, otherwise the count and its label.
+ */
+export function recipientSummary({
+	count,
+	empty,
+	singular,
+	plural,
+}: {
+	/** The number of recipients. */
+	count: number;
+
+	/** Text for a count of zero. */
+	empty: string;
+
+	/** The label for one recipient. */
+	singular: string;
+
+	/** The label for multiple recipients. */
+	plural: string;
+}) {
+	if (count === 0) {
+		return empty;
+	}
+
+	if (count === 1) {
+		return `${count} ${singular}`;
+	}
+
+	return `${count} ${plural}`;
+}

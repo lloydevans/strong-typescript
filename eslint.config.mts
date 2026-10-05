@@ -13,12 +13,33 @@ export default defineConfig(
 	{
 		rules: {
 			"@typescript-eslint/member-ordering": "error",
+			"arrow-body-style": ["error", "as-needed"],
+			"one-var": ["error", "never"],
+			"max-params": ["error", 3],
+			"no-nested-ternary": "error",
+			"@typescript-eslint/no-confusing-void-expression": ["error", { ignoreArrowShorthand: true }],
+			"@typescript-eslint/restrict-template-expressions": [
+				"error",
+				{
+					allow: [],
+					allowAny: false,
+					allowBoolean: false,
+					allowNever: false,
+					allowNullish: false,
+					allowNumber: true,
+					allowRegExp: false,
+				},
+			],
 			"no-restricted-syntax": [
 				"error",
 				{
 					selector:
 						":matches(:matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration > VariableDeclarator > :matches(FunctionExpression, ArrowFunctionExpression, :matches(TSSatisfiesExpression, TSAsExpression, TSNonNullExpression)[expression.type=/^(FunctionExpression|ArrowFunctionExpression)$/]).init, ExportDefaultDeclaration > :matches(FunctionExpression, ArrowFunctionExpression).declaration)",
 					message: "Write a function declaration for a module-level function.",
+				},
+				{
+					selector: "ArrowFunctionExpression > BlockStatement.body[body.length=1] > ExpressionStatement",
+					message: "Use an expression body for a single-statement arrow function.",
 				},
 			],
 		},

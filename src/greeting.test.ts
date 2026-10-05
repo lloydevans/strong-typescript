@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Greeter, type GreetingStyle } from "./greeting";
+import { Greeter, type GreetingStyle, recipientSummary } from "./greeting";
 
 describe("Greeter", () => {
-	it("greets the world by default", () => {
-		expect(new Greeter().greet()).toBe("Hello World");
-	});
+	it("greets the world by default", () => expect(new Greeter().greet()).toBe("Hello World"));
 
 	it("normalizes names and preserves their order without changing the input", () => {
 		const greeter = new Greeter();
@@ -16,9 +14,7 @@ describe("Greeter", () => {
 		expect(names).toEqual([" Vite ", "Ada"]);
 	});
 
-	it("returns empty text for an empty recipient list", () => {
-		expect(new Greeter().greet([])).toBe("");
-	});
+	it("returns empty text for an empty recipient list", () => expect(new Greeter().greet([])).toBe(""));
 
 	it.each(["", " ", "\t"])("refuses blank names without affecting a later call: %j", (name) => {
 		const greeter = new Greeter();
@@ -42,3 +38,11 @@ describe("Greeter", () => {
 		expect(greeter.greet([" Ada ", "Lin"])).toBe("Hello:  ADA ! | Hello: LIN!");
 	});
 });
+
+it.each([
+	[0, "Nobody"],
+	[1, "1 recipient"],
+	[2, "2 recipients"],
+])("summarizes %i recipients", (count, expected) =>
+	expect(recipientSummary({ count, empty: "Nobody", singular: "recipient", plural: "recipients" })).toBe(expected),
+);
