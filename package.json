@@ -7,7 +7,7 @@
 		"serve": "npx --no-install vite",
 		"build": "npx --no-install vite build",
 		"preview": "npx --no-install vite preview",
-		"typecheck": "npx --no-install tsc --noEmit -p src/tsconfig.json && npx --no-install tsc --noEmit -p tsconfig.json",
+		"typecheck": "node scripts/typecheck.mts",
 		"lint": "npx --no-install eslint . --ext .js,.cjs,.ts,.mts,.tsx,.cts --max-warnings 0",
 		"lint-fix": "npx --no-install eslint . --ext .js,.cjs,.ts,.mts,.tsx,.cts --max-warnings 0 --fix",
 		"format": "npx --no-install prettier . --write",
@@ -49,5 +49,11 @@
 	"prettier": {
 		"useTabs": true,
 		"printWidth": 130
+	},
+	"workspaces": [
+		"packages/*"
+	],
+	"dependencies": {
+		"@example/greeter": "*"
 	}
 }

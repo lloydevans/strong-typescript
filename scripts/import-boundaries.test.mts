@@ -1,16 +1,64 @@
-import { mkdirSync, mkdtempDisposableSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempDisposableSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
-import { resolve } from "eslint-import-resolver-typescript";
 import tseslint from "typescript-eslint";
-import { expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
+import { resolve } from "./import-resolver.mts";
 
-const eslint = new ESLint({ overrideConfig: tseslint.configs.disableTypeChecked });
+const files = {
+	entry: "src/index.ts",
+	application: "src/value.ts",
+	entryTest: "src/index.test.ts",
+	applicationTest: "src/value.test.ts",
+	packageEntry: "packages/first/src/index.ts",
+	packageSource: "packages/first/src/value.ts",
+	packageTest: "packages/first/src/value.test.ts",
+	tooling: "scripts/value.mts",
+	toolingTest: "scripts/value.test.mts",
+	config: "vitest.config.mts",
+};
 
-async function diagnostics(source: string, filePath: string, linter = eslint) {
+type Role = keyof typeof files;
+
+const allowed: Record<Role, Role[]> = {
+	entry: ["application", "packageEntry"],
+	application: ["application", "packageEntry"],
+	entryTest: ["entry", "application", "packageEntry"],
+	applicationTest: ["application", "packageEntry"],
+	packageEntry: ["packageSource", "packageEntry"],
+	packageSource: ["packageSource", "packageEntry"],
+	packageTest: ["packageSource", "packageEntry"],
+	tooling: ["tooling", "config"],
+	toolingTest: ["tooling", "config"],
+	config: ["tooling", "config"],
+};
+const roles = Object.keys(files) as Role[];
+const directions = roles.flatMap((from) => roles.map((to) => ({ from, to, permitted: allowed[from].includes(to) })));
+const directory = mkdtempDisposableSync(join(tmpdir(), "import-boundaries-"));
+const root = join(directory.path, "Project");
+const configPath = fileURLToPath(new URL("../eslint.config.mts", import.meta.url));
+const resolverPath = fileURLToPath(new URL("./import-resolver.mts", import.meta.url));
+
+function createLinter(cwd = root) {
+	return new ESLint({
+		cwd,
+		overrideConfigFile: configPath,
+		overrideConfig: [
+			tseslint.configs.disableTypeChecked,
+			{
+				settings: {
+					"boundaries/root-path": cwd,
+					"import/resolver": { [resolverPath]: { root: cwd, project: join(cwd, "tsconfig.json") } },
+				},
+			},
+		],
+	});
+}
+
+async function diagnostics(source: string, filePath: string, linter = createLinter()) {
 	const results = await linter.lintText(source, { filePath });
 	expect(results).toHaveLength(1);
 	expect(results[0]?.fatalErrorCount).toBe(0);
@@ -23,87 +71,104 @@ async function diagnostics(source: string, filePath: string, linter = eslint) {
 	);
 }
 
-test.each([
-	["feature to entry", "src/greeting.ts", "./index"],
-	["library to feature", "src/lib/example.ts", "../greeting"],
-	["library to entry", "src/lib/example.ts", "../index"],
-	["entry to tooling", "src/index.ts", "../scripts/jsdoc-config.mts"],
-	["feature to tooling", "src/greeting.ts", "../scripts/jsdoc-config.mts"],
-	["library to tooling", "src/lib/example.ts", "../../scripts/jsdoc-config.mts"],
-	["entry to configuration", "src/index.ts", "../vitest.config.mts"],
-	["feature to configuration", "src/greeting.ts", "./tsconfig.json"],
-	["library to configuration", "src/lib/example.ts", "../../package.json"],
-	["entry to tests", "src/index.ts", "./greeting.test.ts"],
-	["feature to tests", "src/greeting.ts", "./greeting.test.ts"],
-	["library to tests", "src/lib/example.ts", "../greeting.test.ts"],
-	["tooling to feature", "scripts/example.mts", "../src/greeting"],
-	["tooling to entry", "scripts/example.mts", "../src/index"],
-	["configuration to feature", "vite.config.mts", "./src/greeting"],
-	["configuration to entry", "vite.config.mts", "./src/index"],
-	["tooling to tests", "scripts/example.mts", "./jsdoc-config.test.mts"],
-	["configuration to tests", "vite.config.mts", "./scripts/jsdoc-config.test.mts"],
-	["entry test to another test", "src/index.test.ts", "./greeting.test.ts"],
-	["feature test to another test", "src/example.test.ts", "./greeting.test.ts"],
-	["library test to another test", "src/lib/example.test.ts", "../greeting.test.ts"],
-	["tooling test to another test", "scripts/example.test.mts", "./jsdoc-config.test.mts"],
-	["feature test to entry", "src/greeting.test.ts", "./index"],
-	["library test to entry", "src/lib/example.test.ts", "../index"],
-	["library test to feature", "src/lib/example.test.ts", "../greeting"],
-	["tooling test to entry", "scripts/example.test.mts", "../src/index"],
-	["tooling test to feature", "scripts/example.test.mts", "../src/greeting"],
-	["feature test to tooling", "src/greeting.test.ts", "../scripts/jsdoc-config.mts"],
-	["entry test to configuration", "src/index.test.ts", "../package.json"],
-])("rejects %s", async (_name, filePath, specifier) =>
-	expect(await diagnostics(`import ${JSON.stringify(specifier)};`, filePath)).toContainEqual(
-		expect.objectContaining({ ruleId: "boundaries/dependencies" }),
-	),
+function specifier(from: string, to: string) {
+	return `./${relative(dirname(from), to).replaceAll("\\", "/")}`;
+}
+
+beforeAll(() => {
+	for (const path of [
+		...Object.values(files),
+		"packages/second/src/index.ts",
+		"packages/second/src/value.ts",
+		"packages/second/src/value.test.ts",
+	]) {
+		mkdirSync(dirname(join(root, path)), { recursive: true });
+		writeFileSync(join(root, path), "export const value = 1;\n");
+	}
+
+	writeFileSync(
+		join(root, "tsconfig.json"),
+		JSON.stringify({
+			compilerOptions: { module: "ESNext", moduleResolution: "bundler" },
+			include: ["**/*.ts", "**/*.mts"],
+		}),
+	);
+	writeFileSync(join(root, "src/tsconfig.json"), "{}");
+	writeFileSync(join(root, "src/style.css"), "body {}");
+	writeFileSync(join(root, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }));
+	writeFileSync(join(root, "README.md"), "Unclassified");
+	writeFileSync(join(directory.path, "outside.ts"), "export const outside = 1;");
+	mkdirSync(join(root, "node_modules/@example"), { recursive: true });
+	mkdirSync(join(root, "node_modules/undeclared"), { recursive: true });
+	writeFileSync(join(root, "node_modules/undeclared/index.ts"), "export const value = 1;");
+
+	for (const name of ["first", "second"]) {
+		const path = join(root, "packages", name);
+		writeFileSync(join(path, "package.json"), JSON.stringify({ name: `@example/${name}`, exports: { ".": "./src/index.ts" } }));
+		writeFileSync(join(path, "tsconfig.json"), "{}");
+		symlinkSync(path, join(root, "node_modules/@example", name), "junction");
+	}
+});
+
+afterAll(() => directory.remove());
+
+test.each(directions)("$from -> $to (allowed: $permitted)", async ({ from, to, permitted }) => {
+	const source = `import ${JSON.stringify(specifier(files[from], files[to]))};`;
+	const messages = await diagnostics(source, files[from]);
+
+	if (permitted) {
+		expect(messages).toEqual([]);
+	} else {
+		expect(messages).toContainEqual(expect.objectContaining({ ruleId: "boundaries/dependencies" }));
+	}
+});
+
+test.each(["packageEntry", "packageSource", "packageTest"] as const)(
+	"%s reaches another package only through its entry",
+	async (role) => {
+		expect(await diagnostics('import "@example/second";', files[role])).toEqual([]);
+		expect(await diagnostics('import "../../second/src/index";', files[role])).toEqual([]);
+
+		for (const source of ['import "../../second/src/value";', 'import "../../second/src/value.test.ts";']) {
+			expect(await diagnostics(source, files[role])).toContainEqual(
+				expect.objectContaining({ ruleId: "boundaries/dependencies" }),
+			);
+		}
+	},
 );
 
+test.each(["first", "second"])("checks named entry and private subpaths of %s", async (name) => {
+	expect(await diagnostics(`import "@example/${name}";`, "src/index.ts")).toEqual([]);
+	expect(await diagnostics(`import "@example/${name}/src/value.ts";`, "src/index.ts")).toContainEqual(
+		expect.objectContaining({ ruleId: "boundaries/no-unknown-dependencies" }),
+	);
+});
+
 test.each([
-	["relative traversal", 'import "./../src/../scripts/jsdoc-config.mts";'],
-	["re-export", 'export { documentationConfig } from "../scripts/jsdoc-config.mts";'],
-	["type-only import", 'import type { documentationConfig } from "../scripts/jsdoc-config.mts";'],
-	["literal dynamic import", 'await import("../scripts/jsdoc-config.mts");'],
-	["import type expression", 'type Configuration = typeof import("../scripts/jsdoc-config.mts");'],
-	["CommonJS require", 'const configuration = require("../scripts/jsdoc-config.mts");'],
-	["TypeScript import equals", 'import configuration = require("../scripts/jsdoc-config.mts");'],
-	["namespace import", 'import * as configuration from "../scripts/jsdoc-config.mts";'],
+	["relative traversal", 'import "./../src/../packages/first/src/value";'],
+	["re-export", 'export { value } from "../packages/first/src/value";'],
+	["type-only import", 'import type { value } from "../packages/first/src/value";'],
+	["literal dynamic import", 'await import("../packages/first/src/value");'],
+	["import type expression", 'type Value = typeof import("../packages/first/src/value");'],
+	["CommonJS require", 'const value = require("../packages/first/src/value");'],
+	["TypeScript import equals", 'import value = require("../packages/first/src/value");'],
+	["namespace import", 'import * as value from "../packages/first/src/value";'],
 ])("checks the resolved target of a %s", async (_name, source) =>
-	expect(await diagnostics(source, "src/greeting.ts")).toContainEqual(
+	expect(await diagnostics(source, "src/index.ts")).toContainEqual(
 		expect.objectContaining({ ruleId: "boundaries/dependencies" }),
 	),
 );
 
 test.each(["mock", "doMock", "importActual", "importMock"])("checks vi.%s targets", async (method) =>
-	expect(await diagnostics(`vi.${method}("../scripts/jsdoc-config.mts");`, "src/greeting.test.ts")).toContainEqual(
+	expect(await diagnostics(`vi.${method}("../packages/first/src/value");`, "src/index.test.ts")).toContainEqual(
 		expect.objectContaining({ ruleId: "boundaries/dependencies" }),
 	),
 );
 
-test.each([
-	["entry to feature", "src/index.ts", 'import "./greeting";'],
-	["feature to feature", "src/example.ts", 'import "./greeting";'],
-	["entry test to entry", "src/index.test.ts", 'import "./index";'],
-	["entry test to feature", "src/index.test.ts", 'import "./greeting";'],
-	["feature test to feature", "src/greeting.test.ts", 'import "./greeting";'],
-	["tooling to tooling", "scripts/example.mts", 'import "./jsdoc-config.mts";'],
-	["tooling to configuration", "scripts/example.mts", 'import manifest from "../package.json" with { type: "json" };'],
-	["configuration to tooling", "eslint.config.mts", 'import "./scripts/import-boundaries.mts";'],
-	["configuration to configuration", "vitest.config.mts", 'import "./tsconfig.json";'],
-	["tooling test to tooling", "scripts/example.test.mts", 'import "./jsdoc-config.mts";'],
-	["tooling test to configuration", "scripts/example.test.mts", 'import "../package.json";'],
-	["stylesheet", "src/index.ts", 'import "./style.css";'],
-	["runtime extension", "eslint.config.mts", 'import "./scripts/jsdoc-config.mjs";'],
-	["declared package", "src/greeting.test.ts", 'import { expect } from "vitest";'],
-	["declared package subpath", "eslint.config.mts", 'import { defineConfig } from "eslint/config";'],
-	["Node built-in", "scripts/example.mts", 'import { fileURLToPath } from "node:url";'],
-])("allows %s", async (_name, filePath, source) => expect(await diagnostics(source, filePath)).toEqual([]));
-
-test.each(["./missing.ts", "undeclared-package", "../README.md", "../node_modules/is-number/index.js"])(
+test.each(["./missing.ts", "undeclared-package", "../README.md", "../../outside.ts", "../node_modules/undeclared/index.ts"])(
 	"rejects an unresolved or unclassified dependency: %s",
-	async (specifier) => {
-		const messages = await diagnostics(`import ${JSON.stringify(specifier)};`, "src/greeting.ts");
-
+	async (target) => {
+		const messages = await diagnostics(`import ${JSON.stringify(target)};`, "src/value.ts");
 		expect(messages).toContainEqual(expect.objectContaining({ ruleId: "boundaries/dependencies" }));
 		expect(messages).toContainEqual(expect.objectContaining({ ruleId: "boundaries/no-unknown-dependencies" }));
 	},
@@ -114,91 +179,79 @@ test("rejects a file in no category", async () =>
 		expect.objectContaining({ ruleId: "boundaries/no-unknown-files" }),
 	));
 
-test.each(['const path = "./greeting"; await import(path);', "await import(`./greeting`);"])(
-	"rejects a computed dynamic import: %s",
+test.each(['const path = "@example/first"; await import(path);', "await import(`@example/first`);"])(
+	"rejects computed dynamic imports: %s",
 	async (source) =>
-		expect(await diagnostics(source, "src/index.ts")).toContainEqual(
-			expect.objectContaining({
-				ruleId: "no-restricted-syntax",
-				message: "Use a literal import so lint can resolve and enforce its boundary.",
-			}),
-		),
+		expect(await diagnostics(source, "src/index.ts")).toContainEqual(expect.objectContaining({ ruleId: "no-restricted-syntax" })),
 );
 
-test("allows a literal dynamic import", async () =>
-	expect(await diagnostics('await import("./greeting");', "src/index.ts")).toEqual([]));
+test("allows literal dynamic imports, stylesheets, extensionless source and real tooling extensions", async () => {
+	expect(await diagnostics('await import("@example/first");', "src/index.ts")).toEqual([]);
+	expect(await diagnostics('import "./style.css";', "src/index.ts")).toEqual([]);
+	expect(await diagnostics('import "./value";', "packages/first/src/index.ts")).toEqual([]);
+	expect(await diagnostics('import "./scripts/value.mts";', "eslint.config.mts")).toEqual([]);
+});
 
-test("checks library directions with the shipped policy outside the checkout", async () => {
-	const directory = mkdtempDisposableSync(join(tmpdir(), "import-boundaries-"));
-	const root = join(directory.path, "project");
-
-	try {
-		mkdirSync(join(root, "src/lib"), { recursive: true });
-		writeFileSync(join(root, "src/lib/value.ts"), "export const value = 1;\n");
-		writeFileSync(join(root, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }));
-		writeFileSync(join(directory.path, "outside.ts"), "export const value = 1;\n");
-
-		const linter = new ESLint({
-			cwd: root,
-			overrideConfigFile: fileURLToPath(new URL("../eslint.config.mts", import.meta.url)),
-			overrideConfig: [
-				tseslint.configs.disableTypeChecked,
-				{
-					settings: {
-						"boundaries/root-path": root,
-						"import/resolver": { typescript: { project: join(root, "tsconfig.json") } },
-					},
-				},
-			],
-		});
-
-		for (const [filePath, specifier] of [
-			["src/index.ts", "./lib/value"],
-			["src/example.ts", "./lib/value"],
-			["src/lib/example.ts", "./value"],
-			["src/index.test.ts", "./lib/value"],
-			["src/example.test.ts", "./lib/value"],
-			["src/lib/example.test.ts", "./value"],
-		] as const) {
-			expect(await diagnostics(`import ${JSON.stringify(specifier)};`, filePath, linter), filePath).toEqual([]);
-		}
-
-		for (const [filePath, specifier] of [
-			["scripts/example.mts", "../src/lib/value"],
-			["scripts/example.test.mts", "../src/lib/value"],
-			["vite.config.mts", "./src/lib/value"],
-		] as const) {
-			expect(await diagnostics(`import ${JSON.stringify(specifier)};`, filePath, linter), filePath).toContainEqual(
-				expect.objectContaining({ ruleId: "boundaries/dependencies" }),
-			);
-		}
-
-		expect(await diagnostics('import "../../outside.ts";', "src/example.ts", linter)).toContainEqual(
-			expect.objectContaining({ ruleId: "boundaries/no-unknown-dependencies" }),
+test.each(["src/tsconfig.json", "package.json", "packages/first/package.json", "packages/first/tsconfig.json"])(
+	"classifies %s as configuration",
+	async (path) => {
+		expect(await diagnostics(`import ${JSON.stringify(specifier("scripts/example.mts", path))};`, "scripts/example.mts")).toEqual(
+			[],
 		);
-	} finally {
-		directory.remove();
+		expect(await diagnostics(`import ${JSON.stringify(specifier("src/index.ts", path))};`, "src/index.ts")).toContainEqual(
+			expect.objectContaining({ ruleId: "boundaries/dependencies" }),
+		);
+	},
+);
+
+test("keeps declared workspace names inside the real policy", async () => {
+	symlinkSync(join(root, "packages/first"), join(root, "node_modules/@example/greeter"), "junction");
+
+	expect(await diagnostics('import "@example/greeter";', "src/index.ts")).toEqual([]);
+	expect(await diagnostics('import "@example/greeter";', "scripts/example.mts")).toContainEqual(
+		expect.objectContaining({ ruleId: "boundaries/dependencies" }),
+	);
+});
+
+test("allows declared third parties and Node built-ins", async () => {
+	expect(await diagnostics('import "vitest";', "packages/first/src/value.test.ts")).toEqual([]);
+	expect(await diagnostics('import "eslint/config";', "eslint.config.mts")).toEqual([]);
+	expect(await diagnostics('import "node:url";', "scripts/example.mts")).toEqual([]);
+});
+
+test.skipIf(process.platform !== "win32")("classifies Windows workspace links with either root spelling", async () => {
+	for (const cwd of [root, root.toUpperCase()]) {
+		const linter = createLinter(cwd);
+		expect(await diagnostics('import "@example/first";', "src/index.ts", linter)).toEqual([]);
+		expect(await diagnostics('import "../PACKAGES/FIRST/src/index";', "src/index.ts", linter)).toEqual([]);
+		expect(await diagnostics('import "../packages/FIRST/src/VALUE";', "src/index.ts", linter)).toContainEqual(
+			expect.objectContaining({ ruleId: "boundaries/dependencies" }),
+		);
+		expect(await diagnostics('import "@example/first";', "scripts/value.mts", linter)).toContainEqual(
+			expect.objectContaining({ ruleId: "boundaries/dependencies" }),
+		);
 	}
 });
 
-test("loads the native resolver and resolves application and tooling imports", () => {
-	for (const [filePath, specifier, target] of [
-		["src/index.ts", "./greeting", "src/greeting.ts"],
+test("loads the native resolver and handles local, external, missing and core imports", () => {
+	for (const [filePath, target, expected] of [
+		["src/index.ts", "@example/first", "packages/first/src/index.ts"],
+		["packages/first/src/index.ts", "./value", "packages/first/src/value.ts"],
 		["src/index.ts", "./style.css", "src/style.css"],
-		["eslint.config.mts", "./scripts/jsdoc-config.mts", "scripts/jsdoc-config.mts"],
+		["eslint.config.mts", "./scripts/value.mts", "scripts/value.mts"],
 	] as const) {
-		const importer = fileURLToPath(new URL(`../${filePath}`, import.meta.url));
-
-		expect(resolve(specifier, importer)).toEqual({
+		expect(resolve(target, join(root, filePath), { root, project: join(root, "tsconfig.json") })).toEqual({
 			found: true,
-			path: fileURLToPath(new URL(`../${target}`, import.meta.url)),
+			path: join(root, expected),
 		});
 	}
+
+	expect(resolve("./missing", join(root, "src/index.ts"), { root })).toEqual({ found: false });
+	expect(resolve("node:url", join(root, "scripts/value.mts"), { root })).toEqual({ found: true, path: null });
 
 	if (process.arch === "x64" && (process.platform === "win32" || process.platform === "linux")) {
 		const binding =
 			process.platform === "win32" ? "@unrs/resolver-binding-win32-x64-msvc" : "@unrs/resolver-binding-linux-x64-gnu";
-
 		expect(createRequire(import.meta.url).resolve(binding)).toMatch(/\.node$/);
 	}
 });
