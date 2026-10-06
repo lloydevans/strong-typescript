@@ -11,12 +11,18 @@ export interface WorkspacePackage {
 
 	/** The absolute public entry inside the package. */
 	entry: string;
+
+	/** Names declared in dependencies or devDependencies. */
+	dependencies: string[];
 }
 
 /** Local packages and the third-party names declared across the project. */
 export interface WorkspaceLayout {
 	/** Packages matched by the root manifest's workspace patterns. */
 	packages: WorkspacePackage[];
+
+	/** Dependency names declared by the application's root manifest. */
+	rootDependencies: string[];
 
 	/** Declared dependency names excluding local packages. */
 	externalPackages: string[];
@@ -64,10 +70,45 @@ function dependencyNames(value: unknown) {
 }
 
 /**
+ * Reject cycles in the declared graph of local packages.
+ * @param packages - Packages and their declared dependencies.
+ * @throws When a package depends on itself or a path returns to an earlier package.
+ */
+function checkCycles(packages: WorkspacePackage[]) {
+	const byName = new Map(packages.map((pkg) => [pkg.name, pkg]));
+	const complete = new Set<string>();
+	const active: string[] = [];
+
+	/**
+	 * Visit each local dependency before completing a package.
+	 * @param name - A local or external dependency name.
+	 * @throws When the name is already on the active path.
+	 */
+	function visit(name: string) {
+		const start = active.indexOf(name);
+		if (start !== -1) {
+			throw new Error(`Workspace dependency cycle: ${[...active.slice(start), name].join(" -> ")}`);
+		}
+
+		const pkg = byName.get(name);
+		if (!pkg || complete.has(name)) {
+			return;
+		}
+
+		active.push(name);
+		pkg.dependencies.forEach(visit);
+		active.pop();
+		complete.add(name);
+	}
+
+	packages.forEach((pkg) => visit(pkg.name));
+}
+
+/**
  * Discover local packages and external dependencies from their owning manifests.
  * @param root - The directory containing the root package manifest.
  * @returns Local package entries and names exempt from local import boundaries.
- * @throws When manifests are unreadable, workspace patterns or package entries are malformed, or an entry leaves its package.
+ * @throws When manifests or entries are invalid, an entry leaves its package, or local dependencies form a cycle.
  */
 export function readWorkspacePackages(root: string): WorkspaceLayout {
 	const manifest = readManifest(join(root, "package.json"));
@@ -76,7 +117,7 @@ export function readWorkspacePackages(root: string): WorkspaceLayout {
 		throw new Error("Expected workspace patterns");
 	}
 
-	const externalNames = [...dependencyNames(manifest.dependencies), ...dependencyNames(manifest.devDependencies)];
+	const rootDependencies = [...dependencyNames(manifest.dependencies), ...dependencyNames(manifest.devDependencies)];
 	const packages = globSync(
 		workspaces.map((pattern) => `${pattern}/package.json`),
 		{ cwd: root },
@@ -95,11 +136,14 @@ export function readWorkspacePackages(root: string): WorkspaceLayout {
 				throw new Error(`Entry must stay inside its package: ${path}`);
 			}
 
-			externalNames.push(...dependencyNames(pkg.dependencies), ...dependencyNames(pkg.devDependencies));
+			const dependencies = [...dependencyNames(pkg.dependencies), ...dependencyNames(pkg.devDependencies)];
 
-			return { name: pkg.name, directory, entry };
+			return { name: pkg.name, directory, entry, dependencies };
 		});
-	const names = new Set(packages.map((pkg) => pkg.name));
+	checkCycles(packages);
 
-	return { packages, externalPackages: [...new Set(externalNames)].filter((name) => !names.has(name)) };
+	const names = new Set(packages.map((pkg) => pkg.name));
+	const externalNames = [...rootDependencies, ...packages.flatMap((pkg) => pkg.dependencies)];
+
+	return { packages, rootDependencies, externalPackages: [...new Set(externalNames)].filter((name) => !names.has(name)) };
 }

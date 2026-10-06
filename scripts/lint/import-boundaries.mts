@@ -1,23 +1,21 @@
 /**
  * Import policy for the application, workspace packages and development tooling.
  * Each file takes its first matching category; local dependencies are denied unless listed below.
- * The application may use package entries. Packages may use their own internals and other package entries.
+ * The application and packages may use entries declared in their own manifest's dependencies or devDependencies.
+ * These allowances come from the shared workspace reader; relative paths do not bypass a missing declaration.
+ * Packages may use their own internals. Manifest cycles, including self-dependencies, fail lint and typecheck.
+ * Cycles between files inside one package are not checked, and declared imports need no particular spelling.
  * Packages never import application code, and production code never imports tests or development tooling.
  * Tests may use their subject's source, but never another test; only the entry's own test imports the DOM entry.
  * Tooling under scripts/ at any depth and configuration may use each other, separately from application and package source.
  * Checks use resolved files, including re-exports, type imports, literal dynamic imports, require and Vitest mock targets.
  * Unclassified files and unresolved local dependencies fail. Workspace names stay local; other declared packages are external.
  */
+import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createConfig, type DependenciesRuleOptions, type Settings } from "eslint-plugin-boundaries/config";
 import { defineConfig } from "eslint/config";
 import { readWorkspacePackages } from "../workspace/workspace-packages.mts";
-
-/** The directory whose imports this policy owns. */
-const root = fileURLToPath(new URL("../../", import.meta.url));
-
-/** Manifest-owned dependency names, with local packages kept inside the policy. */
-const thirdParty = readWorkspacePackages(root).externalPackages;
 
 /**
  * Select one or more file roles.
@@ -30,7 +28,6 @@ function category(...names: string[]) {
 
 /** File roles ordered before the broader folders they belong to. */
 const settings = {
-	"boundaries/root-path": root,
 	"boundaries/files-single-match": true,
 	"boundaries/files": [
 		{ category: "entry-test", pattern: "src/index.test.ts" },
@@ -48,7 +45,6 @@ const settings = {
 		unresolvableAlias: false,
 		inNodeModules: false,
 		outsideRootPath: false,
-		customSourcePatterns: thirdParty.flatMap((name) => [name, `${name}/**`]),
 	},
 	"boundaries/additional-dependency-nodes": [
 		{ selector: "TSImportType > Literal", name: "import-type", kind: "type" },
@@ -67,39 +63,93 @@ const dependencies = {
 	default: "disallow",
 	checkUnknownLocals: true,
 	policies: [
-		{ from: category("entry", "application"), allow: { to: category("application", "package-entry") } },
-		{ from: category("entry-test"), allow: { to: category("entry", "application", "package-entry") } },
-		{ from: category("application-test"), allow: { to: category("application", "package-entry") } },
-		{ from: category("package-entry", "package-source", "package-test"), allow: { to: category("package-entry") } },
+		{ from: category("entry", "application"), allow: { to: category("application") } },
+		{ from: category("entry-test"), allow: { to: category("entry", "application") } },
+		{ from: category("application-test"), allow: { to: category("application") } },
 		{
 			from: category("package-entry", "package-source", "package-test"),
-			allow: { to: { file: { categories: ["package-source"], captured: { package: "{{ from.file.captured.package }}" } } } },
+			allow: {
+				to: {
+					file: { categories: ["package-entry", "package-source"], captured: { package: "{{ from.file.captured.package }}" } },
+				},
+			},
 		},
 		{ from: category("tooling", "config", "tooling-test"), allow: { to: category("tooling", "config") } },
 	],
 } satisfies DependenciesRuleOptions;
 
-/** Enforce the policy in this module's header on resolved paths. */
-export const importBoundaries = defineConfig(
-	createConfig({
-		files: ["**/*.{js,cjs,mjs,ts,cts,mts,tsx}"],
-		settings,
-		rules: {
-			"boundaries/dependencies": ["error", dependencies],
-			"boundaries/no-unknown-dependencies": ["error", { require: "file" }],
-			"boundaries/no-unknown-files": "error",
+/**
+ * Enforce the header's policy using the manifests in the supplied tree.
+ * @param root - The application root whose manifests own dependency declarations.
+ * @returns Boundary settings and rules for resolved files in that tree.
+ * @throws When the workspace reader rejects a manifest or a package cycle.
+ */
+export function createImportBoundaries(root: string) {
+	const layout = readWorkspacePackages(root);
+	const owners = [
+		{
+			name: "",
+			manifest: "package.json",
+			dependencies: layout.rootDependencies,
+			from: category("entry", "application", "entry-test", "application-test"),
 		},
-	}),
-	{
-		settings: {
-			"import/resolver": {
-				[fileURLToPath(new URL("./import-resolver.mts", import.meta.url))]: {
-					root,
-					project: ["tsconfig.json", "src/tsconfig.json", "packages/*/tsconfig.json"],
-					alwaysTryTypes: true,
-					noWarnOnMultipleProjects: true,
+		...layout.packages.map((pkg) => ({
+			name: pkg.name,
+			manifest: `${relative(root, pkg.directory).replaceAll("\\", "/")}/package.json`,
+			dependencies: pkg.dependencies,
+			from: {
+				file: {
+					categories: ["package-entry", "package-source", "package-test"],
+					path: `${relative(root, pkg.directory).replaceAll("\\", "/")}/src/**`,
+				},
+			},
+		})),
+	];
+	const packagePolicies = owners.flatMap((owner) =>
+		layout.packages
+			.filter((target) => target.name !== owner.name)
+			.map((target) => {
+				const to = { file: { categories: ["package-entry"], path: relative(root, target.entry).replaceAll("\\", "/") } };
+
+				return {
+					from: owner.from,
+					...(owner.dependencies.includes(target.name) ? { allow: { to } } : { disallow: { to } }),
+					message: `Declare ${target.name} in ${owner.manifest} dependencies or devDependencies before importing it.`,
+				};
+			}),
+	);
+
+	return defineConfig(
+		createConfig({
+			files: ["**/*.{js,cjs,mjs,ts,cts,mts,tsx}"],
+			settings: {
+				...settings,
+				"boundaries/root-path": root,
+				"boundaries/flag-as-external": {
+					...settings["boundaries/flag-as-external"],
+					customSourcePatterns: layout.externalPackages.flatMap((name) => [name, `${name}/**`]),
+				},
+			},
+			rules: {
+				"boundaries/dependencies": ["error", { ...dependencies, policies: [...dependencies.policies, ...packagePolicies] }],
+				"boundaries/no-unknown-dependencies": ["error", { require: "file" }],
+				"boundaries/no-unknown-files": "error",
+			},
+		}),
+		{
+			settings: {
+				"import/resolver": {
+					[fileURLToPath(new URL("./import-resolver.mts", import.meta.url))]: {
+						root,
+						project: ["tsconfig.json", "src/tsconfig.json", "packages/*/tsconfig.json"],
+						alwaysTryTypes: true,
+						noWarnOnMultipleProjects: true,
+					},
 				},
 			},
 		},
-	},
-);
+	);
+}
+
+/** Enforce the policy in this module's header on this application's tree. */
+export const importBoundaries = createImportBoundaries(fileURLToPath(new URL("../../", import.meta.url)));

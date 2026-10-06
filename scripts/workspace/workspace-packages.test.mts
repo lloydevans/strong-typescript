@@ -85,7 +85,9 @@ test("discovers every package and exempts only declared third parties", () => {
 				name: `@example/${name}`,
 				directory: join(directory.path, "packages", name),
 				entry: join(directory.path, "packages", name, "src/index.ts"),
+				dependencies: name === "first" ? ["@example/second", "external", "extra"] : [],
 			})),
+			rootDependencies: ["@example/first", "external", "testing"],
 			externalPackages: ["external", "testing", "extra"],
 		});
 	} finally {
@@ -105,10 +107,58 @@ test.each(["./src/public.ts", "./..entry.ts"])("uses workspace patterns and mani
 					name: "@example/renamed",
 					directory: join(directory.path, "packages/second"),
 					entry: join(directory.path, "packages/second", entry),
+					dependencies: [],
 				},
 			],
+			rootDependencies: [],
 			externalPackages: [],
 		});
+	} finally {
+		directory.remove();
+	}
+});
+
+test.each([
+	{ names: ["first", "second", "first"], field: "dependencies" },
+	{ names: ["first", "second", "third", "first"], field: "dependencies" },
+	{ names: ["first", "first"], field: "dependencies" },
+	{ names: ["first", "second", "first"], field: "devDependencies" },
+])("rejects a cycle $names through $field", ({ names, field }) => {
+	const { directory, write } = fixture();
+
+	try {
+		names.slice(0, -1).forEach((name, index) => {
+			mkdirSync(join(directory.path, "packages", name), { recursive: true });
+			write(`packages/${name}/package.json`, {
+				name: `@example/${name}`,
+				exports: { ".": "./src/index.ts" },
+				[field]: { [`@example/${String(names[index + 1])}`]: "*" },
+			});
+		});
+
+		expect(() => readWorkspacePackages(directory.path)).toThrow(
+			`Workspace dependency cycle: ${names.map((name) => `@example/${name}`).join(" -> ")}`,
+		);
+	} finally {
+		directory.remove();
+	}
+});
+
+test("accepts an acyclic graph with shared and external dependencies", () => {
+	const { directory, write } = fixture();
+
+	try {
+		mkdirSync(join(directory.path, "packages/third"));
+		write("packages/third/package.json", {
+			name: "@example/third",
+			exports: { ".": "./src/index.ts" },
+			dependencies: { "@example/first": "*", "@example/second": "*", external: "*" },
+		});
+		expect(readWorkspacePackages(directory.path).packages.map((pkg) => pkg.name)).toEqual([
+			"@example/first",
+			"@example/second",
+			"@example/third",
+		]);
 	} finally {
 		directory.remove();
 	}

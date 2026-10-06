@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempDisposableSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempDisposableSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { createImportBoundaries } from "./import-boundaries.mts";
 import { resolve } from "./import-resolver.mts";
 
 const files = {
@@ -40,21 +41,14 @@ const directions = roles.flatMap((from) => roles.map((to) => ({ from, to, permit
 const directory = mkdtempDisposableSync(join(tmpdir(), "import-boundaries-"));
 const root = join(directory.path, "Project");
 const configPath = fileURLToPath(new URL("../../eslint.config.mts", import.meta.url));
-const resolverPath = fileURLToPath(new URL("./import-resolver.mts", import.meta.url));
 
 function createLinter(cwd = root) {
+	const policy = createImportBoundaries(cwd).map(({ settings = {}, rules = {} }) => ({ settings, rules }));
+
 	return new ESLint({
 		cwd,
 		overrideConfigFile: configPath,
-		overrideConfig: [
-			tseslint.configs.disableTypeChecked,
-			{
-				settings: {
-					"boundaries/root-path": cwd,
-					"import/resolver": { [resolverPath]: { root: cwd, project: join(cwd, "tsconfig.json") } },
-				},
-			},
-		],
+		overrideConfig: [...policy, tseslint.configs.disableTypeChecked],
 	});
 }
 
@@ -97,7 +91,14 @@ beforeAll(() => {
 	);
 	writeFileSync(join(root, "src/tsconfig.json"), "{}");
 	writeFileSync(join(root, "src/style.css"), "body {}");
-	writeFileSync(join(root, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }));
+	writeFileSync(
+		join(root, "package.json"),
+		JSON.stringify({
+			workspaces: ["packages/*"],
+			dependencies: { "@example/first": "*", "@example/second": "*" },
+			devDependencies: { vitest: "*", eslint: "*" },
+		}),
+	);
 	writeFileSync(join(root, "README.md"), "Unclassified");
 	writeFileSync(join(directory.path, "outside.ts"), "export const outside = 1;");
 	mkdirSync(join(root, "node_modules/@example"), { recursive: true });
@@ -106,13 +107,52 @@ beforeAll(() => {
 
 	for (const name of ["first", "second"]) {
 		const path = join(root, "packages", name);
-		writeFileSync(join(path, "package.json"), JSON.stringify({ name: `@example/${name}`, exports: { ".": "./src/index.ts" } }));
+		writeFileSync(
+			join(path, "package.json"),
+			JSON.stringify({
+				name: `@example/${name}`,
+				exports: { ".": "./src/index.ts" },
+				dependencies: name === "first" ? { "@example/second": "*" } : {},
+			}),
+		);
 		writeFileSync(join(path, "tsconfig.json"), "{}");
 		symlinkSync(path, join(root, "node_modules/@example", name), "junction");
 	}
 });
 
 afterAll(() => directory.remove());
+
+test.each(
+	[
+		{ owner: "application", manifest: "package.json", importer: "src/value.ts" },
+		{ owner: "package", manifest: "packages/first/package.json", importer: "packages/first/src/value.ts" },
+	].flatMap((owner) => ["dependencies", "devDependencies"].map((field) => ({ ...owner, field }))),
+)("requires the $owner to declare imports under $field", async ({ manifest, importer, field }) => {
+	const path = join(root, manifest);
+	const original = readFileSync(path);
+	const identity =
+		manifest === "package.json" ? { workspaces: ["packages/*"] } : { name: "@example/first", exports: { ".": "./src/index.ts" } };
+	const sources = ['import "@example/second";', `import ${JSON.stringify(specifier(importer, "packages/second/src/index.ts"))};`];
+
+	try {
+		writeFileSync(path, JSON.stringify({ ...identity, [field]: { "@example/second": "*" } }));
+		for (const source of sources) {
+			expect(await diagnostics(source, importer)).toEqual([]);
+		}
+
+		writeFileSync(path, JSON.stringify(identity));
+		for (const source of sources) {
+			expect(await diagnostics(source, importer)).toContainEqual(
+				expect.objectContaining({
+					ruleId: "boundaries/dependencies",
+					message: `Declare @example/second in ${manifest} dependencies or devDependencies before importing it.`,
+				}),
+			);
+		}
+	} finally {
+		writeFileSync(path, original);
+	}
+});
 
 test.each([
 	{ folder: "lint", other: "workspace" },
