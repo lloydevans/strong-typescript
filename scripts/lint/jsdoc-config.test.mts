@@ -129,14 +129,33 @@ test("still requires documentation on a declaring export in the shipped configur
 	);
 });
 
-test("still requires documentation on a local export list in the shipped configuration", async () => {
-	const source = "/** First stored value. */\nconst a = 1;\n\n/** Second stored value. */\nconst b = 2;\n\n";
-	expect(await violations(`${source}export { a, b };`, "src/documentation-example.ts", shippedEslint)).toEqual([
-		"jsdoc/require-jsdoc",
+test.each([
+	{
+		source: "/** First stored value. */\nconst a = 1;\n\n/** Second stored value. */\nconst b = 2;\n\n",
+		list: "export { a, b };",
+	},
+	{ source: "/** Accepted text input. */\ntype A = string;\n\n", list: "export type { A };" },
+])("allows a local export list in the shipped configuration: $list", async ({ source, list }) => {
+	expect(await violations(`${source}${list}`, "src/documentation-example.ts", shippedEslint)).toEqual([]);
+	expect(
+		await violations(`${source}/** Expose the documented names. */\n${list}`, "src/documentation-example.ts", shippedEslint),
+	).toEqual([]);
+});
+
+test.each([
+	{ declaration: "const a = 1;", list: "export { a };" },
+	{ declaration: "type A = string;", list: "export type { A };" },
+])("requires documentation on the declaration exported through $list", async ({ declaration, list }) => {
+	const results = await shippedEslint.lintText(`${declaration}\n\n${list}`, { filePath: "src/documentation-example.ts" });
+	expect(results).toHaveLength(1);
+	expect(results[0]?.fatalErrorCount).toBe(0);
+	expect(results.flatMap((result) => result.messages.filter((message) => message.ruleId?.startsWith("jsdoc/")))).toEqual([
+		expect.objectContaining({ ruleId: "jsdoc/require-jsdoc", line: 1, column: 1 }),
 	]);
+
 	expect(
 		await violations(
-			`${source}/** Expose the stored values. */\nexport { a, b };`,
+			`/** Describe the stored data. */\n${declaration}\n\n${list}`,
 			"src/documentation-example.ts",
 			shippedEslint,
 		),

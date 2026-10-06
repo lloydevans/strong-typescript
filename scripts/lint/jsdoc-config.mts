@@ -28,8 +28,8 @@ const declaredTypes = `:matches(TSTypeAliasDeclaration, TSInterfaceDeclaration, 
 /** Document members at every type depth, except conditional matching patterns. */
 const typeMembers = `:matches(ClassBody, TSInterfaceBody, ${declaredTypes} TSTypeLiteral) > :matches(TSMethodSignature, TSPropertySignature, TSCallSignatureDeclaration, TSConstructSignatureDeclaration, TSIndexSignature):not(TSConditionalType > *.extendsType *)`;
 
-/** Cover declarations and named-type members; re-exports are documented at their source. */
-const declarations = `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ExportNamedDeclaration:not([source]), ExportDefaultDeclaration, TSExportAssignment, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
+/** Cover declarations and named-type members; export lists and re-exports use documentation at the declaration. */
+const declarations = `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ExportNamedDeclaration[declaration], ExportDefaultDeclaration, TSExportAssignment, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
 
 /** Preserve the plugin's function contexts and check type contracts, not just their implementations. */
 const functionContexts = [
