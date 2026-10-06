@@ -18,6 +18,11 @@ See [README.md](README.md) for requirements and commands.
 - Prefer a built-in array method, such as `.map`, `.filter` or `.reduce`, to a hand-written loop wherever one expresses the transformation.
 - Separate a function's logical blocks with a blank line, such as between checking input, computing a result and writing it out.
 - Use `// prettier-ignore` above a statement only when its layout carries meaning, such as an array arranged in rows to show a 2D grid.
+- Give an arrow function an expression body where it holds a single statement: `(value) => value * 2`. Where that statement's value is discarded, say so with `void`: `() => void values.push(value)`.
+- Declare one variable per declaration: `const first = 1;` then `const second = 2;`.
+- Do not nest one conditional expression inside another. Write a choice among several branches as a `switch`, a small function with early returns or a lookup table.
+- Write a number or bigint directly in a template literal: `` `row ${index + 1}` ``. Convert any other value to a string first: `${error.message}`, `${url.href}`.
+- Give a function at most three parameters. One that needs more takes a single object of named fields, as in `waitFor({ observe, signal, timeout, reason })`, and so does a table of test cases with more than three columns. Where another API dictates a longer signature, keep it under a disable comment with its reason.
 
 ## Lint and formatting
 

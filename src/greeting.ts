@@ -65,3 +65,42 @@ export class Greeter {
 		return this.style.join(normalized.map((name) => this.style.format(this.prefix, name)));
 	}
 }
+
+/**
+ * Describe how many recipients will be greeted.
+ * @param options - The recipient count and the words used to describe it.
+ * @returns The empty text for zero recipients, otherwise the count and its label.
+ * @throws When the count is not a nonnegative safe integer.
+ */
+export function recipientSummary({
+	count,
+	empty,
+	singular,
+	plural,
+}: {
+	/** The number of recipients, a nonnegative safe integer. */
+	count: number;
+
+	/** Text for a count of zero. */
+	empty: string;
+
+	/** The label for one recipient. */
+	singular: string;
+
+	/** The label for multiple recipients. */
+	plural: string;
+}) {
+	if (!Number.isSafeInteger(count) || count < 0) {
+		throw new Error("Recipient count must be a nonnegative safe integer");
+	}
+
+	if (count === 0) {
+		return empty;
+	}
+
+	if (count === 1) {
+		return `${count} ${singular}`;
+	}
+
+	return `${count} ${plural}`;
+}

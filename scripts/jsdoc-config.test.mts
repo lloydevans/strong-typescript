@@ -29,36 +29,81 @@ async function violations(source: string, filePath = "src/documentation-example.
 }
 
 test.each([
-	["FunctionDeclaration", "", "function run() {}", 1],
-	["module-level function expression", "", "const run = function () {};", 1],
-	["module-level arrow", "", "const run = () => {};", 1],
-	["exported function constant", "", "export const run = () => {};", 1],
-	["ClassDeclaration", "", "class State {}", 1],
-	["ClassExpression", "", "const State = class {};", 2],
-	["MethodDefinition", "/** Retain state. */ class State {", "run() {} }", 2],
-	["TSAbstractMethodDefinition", "/** Retain state. */ abstract class State {", "abstract run(): void; }", 1],
-	["TSDeclareFunction", "", "declare function run(): void;", 1],
-	["TSMethodSignature", "/** Describe an operation. */ interface Operation {", "run(): void; }", 1],
-	["TSPropertySignature", "/** Describe retained state. */ interface State {", "value: number; }", 1],
-	["TSInterfaceDeclaration", "", "interface State {}", 1],
-	["TSTypeAliasDeclaration", "", "type State = string;", 1],
-	["TSEnumDeclaration", "", "enum State {}", 1],
-	["TSEnumMember", "/** Name readiness states. */ enum State {", "Ready }", 1],
-	["TSModuleDeclaration", "", "namespace Shapes {}", 1],
-	["TSModuleDeclaration", "", "declare module 'x' {}", 1],
-	["TSCallSignatureDeclaration", "/** Describe an operation. */ interface Operation {", "(): void; }", 1],
-	["TSConstructSignatureDeclaration", "/** Describe an instance factory. */ interface Factory {", "new (): void; }", 1],
-	["TSIndexSignature", "/** Describe named values. */ interface Values {", "[name: string]: number; }", 1],
-	["module-level variable", "", "const value = 1;", 1],
-	["namespace variable", "/** Group operations. */ namespace Operations {", "const value = 1; }", 1],
-	["ambient-module variable", "/** Describe a module. */ declare module 'x' {", "const version: string; }", 1],
-	["global variable", "/** Declare global state. */ declare global {", "var flag: boolean; }", 1],
-	["ExportNamedDeclaration", "", "export const value = 1;", 1],
-	["ExportDefaultDeclaration", "", "export default 1;", 1],
-	["ExportAllDeclaration", "", "export * from './other.js';", 1],
-	["TSExportAssignment", "", "export = value;", 1],
-	["TSNamespaceExportDeclaration", "", "export as namespace Library;", 1],
-])("covers the configured %s declaration", async (_node, prefix, declaration, count) => {
+	{ node: "FunctionDeclaration", prefix: "", declaration: "function run() {}", count: 1 },
+	{ node: "module-level function expression", prefix: "", declaration: "const run = function () {};", count: 1 },
+	{ node: "module-level arrow", prefix: "", declaration: "const run = () => {};", count: 1 },
+	{ node: "exported function constant", prefix: "", declaration: "export const run = () => {};", count: 1 },
+	{ node: "ClassDeclaration", prefix: "", declaration: "class State {}", count: 1 },
+	{ node: "ClassExpression", prefix: "", declaration: "const State = class {};", count: 2 },
+	{ node: "MethodDefinition", prefix: "/** Retain state. */ class State {", declaration: "run() {} }", count: 2 },
+	{
+		node: "TSAbstractMethodDefinition",
+		prefix: "/** Retain state. */ abstract class State {",
+		declaration: "abstract run(): void; }",
+		count: 1,
+	},
+	{ node: "TSDeclareFunction", prefix: "", declaration: "declare function run(): void;", count: 1 },
+	{
+		node: "TSMethodSignature",
+		prefix: "/** Describe an operation. */ interface Operation {",
+		declaration: "run(): void; }",
+		count: 1,
+	},
+	{
+		node: "TSPropertySignature",
+		prefix: "/** Describe retained state. */ interface State {",
+		declaration: "value: number; }",
+		count: 1,
+	},
+	{ node: "TSInterfaceDeclaration", prefix: "", declaration: "interface State {}", count: 1 },
+	{ node: "TSTypeAliasDeclaration", prefix: "", declaration: "type State = string;", count: 1 },
+	{ node: "TSEnumDeclaration", prefix: "", declaration: "enum State {}", count: 1 },
+	{ node: "TSEnumMember", prefix: "/** Name readiness states. */ enum State {", declaration: "Ready }", count: 1 },
+	{ node: "TSModuleDeclaration", prefix: "", declaration: "namespace Shapes {}", count: 1 },
+	{ node: "TSModuleDeclaration", prefix: "", declaration: "declare module 'x' {}", count: 1 },
+	{
+		node: "TSCallSignatureDeclaration",
+		prefix: "/** Describe an operation. */ interface Operation {",
+		declaration: "(): void; }",
+		count: 1,
+	},
+	{
+		node: "TSConstructSignatureDeclaration",
+		prefix: "/** Describe an instance factory. */ interface Factory {",
+		declaration: "new (): void; }",
+		count: 1,
+	},
+	{
+		node: "TSIndexSignature",
+		prefix: "/** Describe named values. */ interface Values {",
+		declaration: "[name: string]: number; }",
+		count: 1,
+	},
+	{ node: "module-level variable", prefix: "", declaration: "const value = 1;", count: 1 },
+	{
+		node: "namespace variable",
+		prefix: "/** Group operations. */ namespace Operations {",
+		declaration: "const value = 1; }",
+		count: 1,
+	},
+	{
+		node: "ambient-module variable",
+		prefix: "/** Describe a module. */ declare module 'x' {",
+		declaration: "const version: string; }",
+		count: 1,
+	},
+	{
+		node: "global variable",
+		prefix: "/** Declare global state. */ declare global {",
+		declaration: "var flag: boolean; }",
+		count: 1,
+	},
+	{ node: "ExportNamedDeclaration", prefix: "", declaration: "export const value = 1;", count: 1 },
+	{ node: "ExportDefaultDeclaration", prefix: "", declaration: "export default 1;", count: 1 },
+	{ node: "ExportAllDeclaration", prefix: "", declaration: "export * from './other.js';", count: 1 },
+	{ node: "TSExportAssignment", prefix: "", declaration: "export = value;", count: 1 },
+	{ node: "TSNamespaceExportDeclaration", prefix: "", declaration: "export as namespace Library;", count: 1 },
+])("covers the configured $node declaration", async ({ prefix, declaration, count }) => {
 	// Methods and class-valued variables have overlapping coverage; either check being removed must fail.
 	expect(await violations(`${prefix}\n${declaration}`)).toEqual(Array.from({ length: count }, () => "jsdoc/require-jsdoc"));
 	expect(await violations(`${prefix}\n/** Define the operation's state or behavior. */\n${declaration}`)).toEqual([]);
@@ -116,11 +161,10 @@ test.each(["void", "undefined", "never"])("does not demand a result tag for %s s
 	}
 });
 
-test("does not invent a result for an unannotated body-less method", async () => {
+test("does not invent a result for an unannotated body-less method", async () =>
 	expect(await violations("/** Describe operations. */ declare class Operations {\n/** Run an operation. */\nrun();\n}")).toEqual(
 		[],
-	);
-});
+	));
 
 test("requires parameter and result descriptions even on unattached comments", async () => {
 	const source = "/**\n * Describe an operation.\n * @param name\n * @returns\n */";
@@ -171,18 +215,16 @@ test("requires module-level variables but not variables inside functions", async
 
 test.each(["(options: { limit: number }) => options.limit", "function (options: { limit: number }) { return options.limit; }"])(
 	"exempts functions assigned to local variables: %s",
-	async (implementation) => {
-		expect(await violations(`/** Run a job. */\nfunction run() { const read = ${implementation}; }`)).toEqual([]);
-	},
+	async (implementation) =>
+		expect(await violations(`/** Run a job. */\nfunction run() { const read = ${implementation}; }`)).toEqual([]),
 );
 
 test.each(["return async function read() {};", "function read() {} return read;"])(
 	"requires documentation on returned functions without a variable: %s",
-	async (body) => {
+	async (body) =>
 		expect(
 			await violations(`/**\n * Prepare a reader.\n * @returns The read operation.\n */\nfunction create() { ${body} }`),
-		).toEqual(["jsdoc/require-jsdoc"]);
-	},
+		).toEqual(["jsdoc/require-jsdoc"]),
 );
 
 test("checks tags on documented local function variables", async () => {
@@ -269,9 +311,9 @@ test.each([
 	"value as { id: number };",
 	"value satisfies { id: number };",
 	"accept<{ id: number }>(value);",
-])("exempts types inside an implementation: %s", async (body) => {
-	expect(await violations(`/** Run a job. */\nfunction run() { ${body} }`)).toEqual([]);
-});
+])("exempts types inside an implementation: %s", async (body) =>
+	expect(await violations(`/** Run a job. */\nfunction run() { ${body} }`)).toEqual([]),
+);
 
 test("documents local type aliases and their members", async () => {
 	const source = "/** Run a job. */\nfunction run() {\ntype Options = {\nlimit: number;\n};\n}";
@@ -295,11 +337,10 @@ test("documents local type aliases and their members", async () => {
 	).toEqual([]);
 });
 
-test("exempts a conditional type's matching pattern", async () => {
+test("exempts a conditional type's matching pattern", async () =>
 	expect(await violations("/** Extract a record's identifier. */\ntype Id<T> = T extends { id: infer U } ? U : never;")).toEqual(
 		[],
-	);
-});
+	));
 
 test("delegates inline parameter members to the plugin's public-only behavior", async () => {
 	const source = "function run(options: { limit: number }) {}";
@@ -352,9 +393,7 @@ test.each(["register", "new Handler"])("exempts direct inline callbacks to %s, n
 
 test.each(["(function () {})();", "register(cond ? () => {} : undefined);"])(
 	"keeps callbacks outside the direct-argument boundary documented: %s",
-	async (source) => {
-		expect(await violations(source)).toContain("jsdoc/require-jsdoc");
-	},
+	async (source) => expect(await violations(source)).toContain("jsdoc/require-jsdoc"),
 );
 
 test.each(["() => {}", "function () {}"])("exempts only direct JSX attribute handlers: %s", async (handler) => {
@@ -376,9 +415,8 @@ test.each([
 	);
 });
 
-test("keeps nested accessors outside the direct object-function exemption", async () => {
-	expect(await violations("({ inner: { get value() { return 1; } } });")).toEqual(["jsdoc/require-jsdoc"]);
-});
+test("keeps nested accessors outside the direct object-function exemption", async () =>
+	expect(await violations("({ inner: { get value() { return 1; } } });")).toEqual(["jsdoc/require-jsdoc"]));
 
 test("the no-tag-types selector covers tags outside parameters and returns", async () => {
 	const source =
