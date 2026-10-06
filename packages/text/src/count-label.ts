@@ -1,15 +1,5 @@
-/**
- * Combine a count with its singular or plural label.
- * @param options - The count and the words used to describe it.
- * @returns The empty text for zero, otherwise the count and its label.
- * @throws When the count is not a nonnegative safe integer.
- */
-export function countLabel({
-	count,
-	empty,
-	singular,
-	plural,
-}: {
+/** A count and the words used to label it. */
+export interface CountLabelOptions {
 	/** A nonnegative safe integer. */
 	count: number;
 
@@ -21,7 +11,15 @@ export function countLabel({
 
 	/** The label for multiple items. */
 	plural: string;
-}) {
+}
+
+/**
+ * Combine a count with its singular or plural label.
+ * @param options - The count and the words used to describe it.
+ * @returns The empty text for zero, otherwise the count and its label.
+ * @throws When the count is not a nonnegative safe integer.
+ */
+export function countLabel({ count, empty, singular, plural }: CountLabelOptions) {
 	if (!Number.isSafeInteger(count) || count < 0) {
 		throw new Error("Count must be a nonnegative safe integer");
 	}
