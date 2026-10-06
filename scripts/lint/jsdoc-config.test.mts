@@ -100,13 +100,47 @@ test.each([
 	},
 	{ node: "ExportNamedDeclaration", prefix: "", declaration: "export const value = 1;", count: 1 },
 	{ node: "ExportDefaultDeclaration", prefix: "", declaration: "export default 1;", count: 1 },
-	{ node: "ExportAllDeclaration", prefix: "", declaration: "export * from './other.js';", count: 1 },
+	{ node: "ExportAllDeclaration", prefix: "", declaration: "export * from './other.js';", count: 0 },
 	{ node: "TSExportAssignment", prefix: "", declaration: "export = value;", count: 1 },
 	{ node: "TSNamespaceExportDeclaration", prefix: "", declaration: "export as namespace Library;", count: 1 },
 ])("covers the configured $node declaration", async ({ prefix, declaration, count }) => {
 	// Methods and class-valued variables have overlapping coverage; either check being removed must fail.
 	expect(await violations(`${prefix}\n${declaration}`)).toEqual(Array.from({ length: count }, () => "jsdoc/require-jsdoc"));
 	expect(await violations(`${prefix}\n/** Define the operation's state or behavior. */\n${declaration}`)).toEqual([]);
+});
+
+test.each([
+	'export { Greeter } from "./greeting";',
+	'export type { GreetingStyle } from "./greeting";',
+	'export * from "./greeting";',
+	'export * as greetings from "./greeting";',
+])("allows an undocumented re-export in the shipped configuration: %s", async (source) => {
+	expect(await violations(source, "packages/greeter/src/index.ts", shippedEslint)).toEqual([]);
+	expect(
+		await violations(`/** Expose the public greeting API. */\n${source}`, "packages/greeter/src/index.ts", shippedEslint),
+	).toEqual([]);
+});
+
+test("still requires documentation on a declaring export in the shipped configuration", async () => {
+	const source = "export const value = 1;";
+	expect(await violations(source, "packages/greeter/src/index.ts", shippedEslint)).toEqual(["jsdoc/require-jsdoc"]);
+	expect(await violations(`/** Store the initial value. */\n${source}`, "packages/greeter/src/index.ts", shippedEslint)).toEqual(
+		[],
+	);
+});
+
+test("still requires documentation on a local export list in the shipped configuration", async () => {
+	const source = "/** First stored value. */\nconst a = 1;\n\n/** Second stored value. */\nconst b = 2;\n\n";
+	expect(await violations(`${source}export { a, b };`, "src/documentation-example.ts", shippedEslint)).toEqual([
+		"jsdoc/require-jsdoc",
+	]);
+	expect(
+		await violations(
+			`${source}/** Expose the stored values. */\nexport { a, b };`,
+			"src/documentation-example.ts",
+			shippedEslint,
+		),
+	).toEqual([]);
 });
 
 test.each([
