@@ -12,5 +12,4 @@ const config = {
 	reporters: ["clear-text", "progress", "html"],
 } satisfies ConstructorParameters<typeof Stryker>[0];
 
-/** Check test effectiveness over application and package source. */
 export default config;
