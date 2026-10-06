@@ -9,12 +9,15 @@ import { readWorkspacePackages } from "./workspace-packages.mts";
 test("Vitest resolves package names to entries inside its own copied tree", async () => {
 	const directory = mkdtempDisposableSync(join(tmpdir(), "workspace-resolution-"));
 	const root = directory.path;
-	const project = fileURLToPath(new URL("../", import.meta.url));
+	const project = fileURLToPath(new URL("../../", import.meta.url));
 
 	try {
-		mkdirSync(join(root, "scripts"));
+		mkdirSync(join(root, "scripts/workspace"), { recursive: true });
 		copyFileSync(join(project, "vitest.config.mts"), join(root, "vitest.config.mts"));
-		copyFileSync(join(project, "scripts/workspace-packages.mts"), join(root, "scripts/workspace-packages.mts"));
+		copyFileSync(
+			join(project, "scripts/workspace/workspace-packages.mts"),
+			join(root, "scripts/workspace/workspace-packages.mts"),
+		);
 		writeFileSync(join(root, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }));
 		symlinkSync(join(project, "node_modules"), join(root, "node_modules"), "junction");
 

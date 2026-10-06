@@ -1,7 +1,7 @@
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { expect, test } from "vitest";
-import { createDocumentationConfig } from "./jsdoc-config.mjs";
+import { createDocumentationConfig } from "./jsdoc-config.mts";
 
 const shippedEslint = new ESLint({ overrideConfig: tseslint.configs.disableTypeChecked });
 const eslint = new ESLint({

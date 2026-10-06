@@ -28,5 +28,5 @@ export function typecheck(root: string) {
 }
 
 if (import.meta.main) {
-	process.exitCode = typecheck(fileURLToPath(new URL("../", import.meta.url)));
+	process.exitCode = typecheck(fileURLToPath(new URL("../../", import.meta.url)));
 }

@@ -7,7 +7,7 @@
 		"serve": "npx --no-install vite",
 		"build": "npx --no-install vite build",
 		"preview": "npx --no-install vite preview",
-		"typecheck": "node scripts/typecheck.mts",
+		"typecheck": "node scripts/workspace/typecheck.mts",
 		"lint": "npx --no-install eslint . --ext .js,.cjs,.ts,.mts,.tsx,.cts --max-warnings 0",
 		"lint-fix": "npx --no-install eslint . --ext .js,.cjs,.ts,.mts,.tsx,.cts --max-warnings 0 --fix",
 		"format": "npx --no-install prettier . --write",

@@ -4,17 +4,17 @@
  * The application may use package entries. Packages may use their own internals and other package entries.
  * Packages never import application code, and production code never imports tests or development tooling.
  * Tests may use their subject's source, but never another test; only the entry's own test imports the DOM entry.
- * Tooling and configuration may use each other, separately from application and package source.
+ * Tooling under scripts/ at any depth and configuration may use each other, separately from application and package source.
  * Checks use resolved files, including re-exports, type imports, literal dynamic imports, require and Vitest mock targets.
  * Unclassified files and unresolved local dependencies fail. Workspace names stay local; other declared packages are external.
  */
 import { fileURLToPath } from "node:url";
 import { createConfig, type DependenciesRuleOptions, type Settings } from "eslint-plugin-boundaries/config";
 import { defineConfig } from "eslint/config";
-import { readWorkspacePackages } from "./workspace-packages.mts";
+import { readWorkspacePackages } from "../workspace/workspace-packages.mts";
 
 /** The directory whose imports this policy owns. */
-const root = fileURLToPath(new URL("../", import.meta.url));
+const root = fileURLToPath(new URL("../../", import.meta.url));
 
 /** Manifest-owned dependency names, with local packages kept inside the policy. */
 const thirdParty = readWorkspacePackages(root).externalPackages;

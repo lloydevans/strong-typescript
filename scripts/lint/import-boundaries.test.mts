@@ -39,7 +39,7 @@ const roles = Object.keys(files) as Role[];
 const directions = roles.flatMap((from) => roles.map((to) => ({ from, to, permitted: allowed[from].includes(to) })));
 const directory = mkdtempDisposableSync(join(tmpdir(), "import-boundaries-"));
 const root = join(directory.path, "Project");
-const configPath = fileURLToPath(new URL("../eslint.config.mts", import.meta.url));
+const configPath = fileURLToPath(new URL("../../eslint.config.mts", import.meta.url));
 const resolverPath = fileURLToPath(new URL("./import-resolver.mts", import.meta.url));
 
 function createLinter(cwd = root) {
@@ -78,6 +78,8 @@ function specifier(from: string, to: string) {
 beforeAll(() => {
 	for (const path of [
 		...Object.values(files),
+		"scripts/lint/value.mts",
+		"scripts/workspace/value.mts",
 		"packages/second/src/index.ts",
 		"packages/second/src/value.ts",
 		"packages/second/src/value.test.ts",
@@ -111,6 +113,20 @@ beforeAll(() => {
 });
 
 afterAll(() => directory.remove());
+
+test.each([
+	{ folder: "lint", other: "workspace" },
+	{ folder: "workspace", other: "lint" },
+	{ folder: "lint/nested", other: "workspace" },
+	{ folder: "workspace/nested", other: "lint" },
+])("keeps scripts/$folder within tooling boundaries", async ({ folder, other }) => {
+	const importer = `scripts/${folder}/example.mts`;
+	expect(await diagnostics(`import ${JSON.stringify(specifier(importer, "src/value.ts"))};`, importer)).toContainEqual(
+		expect.objectContaining({ ruleId: "boundaries/dependencies" }),
+	);
+
+	expect(await diagnostics(`import ${JSON.stringify(specifier(importer, `scripts/${other}/value.mts`))};`, importer)).toEqual([]);
+});
 
 test.each(directions)("$from -> $to (allowed: $permitted)", async ({ from, to, permitted }) => {
 	const source = `import ${JSON.stringify(specifier(files[from], files[to]))};`;

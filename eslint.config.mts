@@ -2,8 +2,8 @@ import { defineConfig } from "eslint/config";
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
-import { documentationConfig } from "./scripts/jsdoc-config.mjs";
-import { importBoundaries } from "./scripts/import-boundaries.mjs";
+import { documentationConfig } from "./scripts/lint/jsdoc-config.mts";
+import { importBoundaries } from "./scripts/lint/import-boundaries.mts";
 
 /** Combine type-aware checks with documentation and member-order rules. */
 export default defineConfig(
