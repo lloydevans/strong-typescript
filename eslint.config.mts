@@ -3,7 +3,7 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
 import { documentationConfig } from "./scripts/lint/jsdoc-config.mts";
-import { importBoundaries } from "./scripts/lint/import-boundaries.mts";
+import { importBoundaries, vitestImportCalls } from "./scripts/lint/import-boundaries.mts";
 
 /** Combine type-aware checks with documentation and member-order rules. */
 export default defineConfig(
@@ -36,6 +36,10 @@ export default defineConfig(
 				{
 					selector: "ImportExpression[source.type!='Literal']",
 					message: "Use a literal import so lint can resolve and enforce its boundary.",
+				},
+				{
+					selector: `${vitestImportCalls}:not([arguments.0.type='Literal'][arguments.0.value=type(string)])`,
+					message: "Use a string literal target so lint can resolve and enforce its boundary.",
 				},
 				{
 					selector:

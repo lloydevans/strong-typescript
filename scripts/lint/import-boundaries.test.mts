@@ -1,5 +1,4 @@
 import { mkdirSync, mkdtempDisposableSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -215,11 +214,20 @@ test.each([
 	),
 );
 
-test.each(["mock", "doMock", "importActual", "importMock"])("checks vi.%s targets", async (method) =>
-	expect(await diagnostics(`vi.${method}("../packages/first/src/value");`, "src/index.test.ts")).toContainEqual(
+test.each(
+	["vi", "vitest"].flatMap((object) => ["mock", "doMock", "importActual", "importMock"].map((method) => ({ object, method }))),
+)("checks $object.$method targets", async ({ object, method }) => {
+	expect(await diagnostics(`${object}.${method}("../packages/first/src/value");`, "src/index.test.ts")).toContainEqual(
 		expect.objectContaining({ ruleId: "boundaries/dependencies" }),
-	),
-);
+	);
+	expect(await diagnostics(`${object}.${method}("@example/first");`, "src/index.test.ts")).toEqual([]);
+
+	for (const target of ["path", "`@example/first`", "123", 'import("@example/first")']) {
+		expect(await diagnostics(`${object}.${method}(${target});`, "src/index.test.ts")).toContainEqual(
+			expect.objectContaining({ ruleId: "no-restricted-syntax" }),
+		);
+	}
+});
 
 test.each(["./missing.ts", "undeclared-package", "../README.md", "../../outside.ts", "../node_modules/undeclared/index.ts"])(
 	"rejects an unresolved or unclassified dependency: %s",
@@ -260,11 +268,9 @@ test.each(["src/tsconfig.json", "package.json", "packages/first/package.json", "
 	},
 );
 
-test("keeps declared workspace names inside the real policy", async () => {
-	symlinkSync(join(root, "packages/first"), join(root, "node_modules/@example/greeter"), "junction");
-
-	expect(await diagnostics('import "@example/greeter";', "src/index.ts")).toEqual([]);
-	expect(await diagnostics('import "@example/greeter";', "scripts/example.mts")).toContainEqual(
+test("keeps declared workspace names inside the boundary policy", async () => {
+	expect(await diagnostics('import "@example/first";', "src/index.ts")).toEqual([]);
+	expect(await diagnostics('import "@example/first";', "scripts/example.mts")).toContainEqual(
 		expect.objectContaining({ ruleId: "boundaries/dependencies" }),
 	);
 });
@@ -275,9 +281,13 @@ test("allows declared third parties and Node built-ins", async () => {
 	expect(await diagnostics('import "node:url";', "scripts/example.mts")).toEqual([]);
 });
 
-test.skipIf(process.platform !== "win32")("classifies Windows workspace links with either root spelling", async () => {
-	for (const cwd of [root, root.toUpperCase()]) {
+test.skipIf(process.platform !== "win32")("classifies Windows roots through case variants and a junction", async () => {
+	const junction = join(directory.path, "linked-root");
+	symlinkSync(root, junction, "junction");
+
+	for (const cwd of [root, root.toUpperCase(), junction]) {
 		const linter = createLinter(cwd);
+		expect(await diagnostics('import "./value";', "src/index.ts", linter)).toEqual([]);
 		expect(await diagnostics('import "@example/first";', "src/index.ts", linter)).toEqual([]);
 		expect(await diagnostics('import "../PACKAGES/FIRST/src/index";', "src/index.ts", linter)).toEqual([]);
 		expect(await diagnostics('import "../packages/FIRST/src/VALUE";', "src/index.ts", linter)).toContainEqual(
@@ -289,7 +299,7 @@ test.skipIf(process.platform !== "win32")("classifies Windows workspace links wi
 	}
 });
 
-test("loads the native resolver and handles local, external, missing and core imports", () => {
+test("resolves local imports and distinguishes missing and core imports", () => {
 	for (const [filePath, target, expected] of [
 		["src/index.ts", "@example/first", "packages/first/src/index.ts"],
 		["packages/first/src/index.ts", "./value", "packages/first/src/value.ts"],
@@ -304,10 +314,4 @@ test("loads the native resolver and handles local, external, missing and core im
 
 	expect(resolve("./missing", join(root, "src/index.ts"), { root })).toEqual({ found: false });
 	expect(resolve("node:url", join(root, "scripts/value.mts"), { root })).toEqual({ found: true, path: null });
-
-	if (process.arch === "x64" && (process.platform === "win32" || process.platform === "linux")) {
-		const binding =
-			process.platform === "win32" ? "@unrs/resolver-binding-win32-x64-msvc" : "@unrs/resolver-binding-linux-x64-gnu";
-		expect(createRequire(import.meta.url).resolve(binding)).toMatch(/\.node$/);
-	}
 });

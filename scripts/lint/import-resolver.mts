@@ -22,7 +22,10 @@ export function resolve(
 ) {
 	const result = resolveTypeScript(source, file, options);
 	if (process.platform === "win32" && result.found && result.path) {
-		return { found: true, path: resolvePath(options.root, relative(options.root, realpathSync.native(result.path))) };
+		return {
+			found: true,
+			path: resolvePath(options.root, relative(realpathSync.native(options.root), realpathSync.native(result.path))),
+		};
 	}
 
 	return result;

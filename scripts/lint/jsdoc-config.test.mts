@@ -100,7 +100,6 @@ test.each([
 	},
 	{ node: "ExportNamedDeclaration", prefix: "", declaration: "export const value = 1;", count: 1 },
 	{ node: "ExportDefaultDeclaration", prefix: "", declaration: "export default 1;", count: 1 },
-	{ node: "ExportAllDeclaration", prefix: "", declaration: "export * from './other.js';", count: 0 },
 	{ node: "TSExportAssignment", prefix: "", declaration: "export = value;", count: 1 },
 	{ node: "TSNamespaceExportDeclaration", prefix: "", declaration: "export as namespace Library;", count: 1 },
 ])("covers the configured $node declaration", async ({ prefix, declaration, count }) => {

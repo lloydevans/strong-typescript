@@ -17,6 +17,10 @@ import { createConfig, type DependenciesRuleOptions, type Settings } from "eslin
 import { defineConfig } from "eslint/config";
 import { readWorkspacePackages } from "../workspace/workspace-packages.mts";
 
+/** Vitest calls whose targets must be literal strings for boundary resolution. */
+export const vitestImportCalls =
+	"CallExpression[callee.object.name=/^(vi|vitest)$/][callee.property.name=/^(mock|doMock|importActual|importMock)$/]";
+
 /**
  * Select one or more file roles.
  * @param names - The roles accepted on this side of a dependency.
@@ -50,8 +54,7 @@ const settings = {
 		{ selector: "TSImportType > Literal", name: "import-type", kind: "type" },
 		{ selector: "TSExternalModuleReference > Literal", name: "import-equals", kind: "value" },
 		{
-			selector:
-				"CallExpression[callee.object.name=vi][callee.property.name=/^(mock|doMock|importActual|importMock)$/] > Literal:first-child",
+			selector: `${vitestImportCalls} > Literal:first-child`,
 			name: "vitest",
 			kind: "value",
 		},
