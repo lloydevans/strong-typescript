@@ -1,5 +1,6 @@
 import { defineConfig } from "eslint/config";
 import eslint from "@eslint/js";
+import stylistic from "@stylistic/eslint-plugin";
 import tseslint from "typescript-eslint";
 import globals from "globals";
 import type { Options } from "prettier";
@@ -17,6 +18,7 @@ export default defineConfig(
 	tseslint.configs.strictTypeChecked,
 	tseslint.configs.stylisticTypeChecked,
 	{
+		plugins: { "@stylistic": stylistic },
 		rules: {
 			"@stylistic/max-len": [
 				"error",
@@ -27,8 +29,12 @@ export default defineConfig(
 					// Use Prettier's default when the project does not set a tab width.
 					tabWidth: prettierOptions.tabWidth ?? 2,
 					ignoreUrls: true,
-					ignorePattern:
-						"^\\s*(?://\\s*eslint-disable-(?:next-line|line)|/\\*\\s*eslint-disable(?:-next-line|-line)?)(?:\\s|\\*/|$)",
+					ignorePattern: [
+						String.raw`^\s*(?://\s*eslint-disable-(?:next-line|line)|(?:\{\s*)?/\*\s*eslint-disable(?:-next-line|-line)?)(?:\s|\*/|$)`,
+						// TypeScript takes everything after this directive's name as its description.
+						String.raw`^\s*(?:///?|/\*)\s*@ts-expect-error`,
+						String.raw`^\s*(?://+|(?:\{\s*)?/\*+|\*)?\s*\S+\s*(?:\*/\s*\}?)?\s*$`,
+					].join("|"),
 				},
 			],
 			"@typescript-eslint/member-ordering": "error",

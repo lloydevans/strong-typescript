@@ -11,8 +11,8 @@ function paragraph(length: number) {
 	return `${"word ".repeat(length).slice(0, length - 1)}.`;
 }
 
-async function diagnostics(source: string) {
-	const results = await eslint.lintText(source, { filePath: "scripts/lint/comment-width-example.mts" });
+async function diagnostics(source: string, filePath = "scripts/lint/comment-width-example.mts", linter = eslint) {
+	const results = await linter.lintText(source, { filePath });
 	expect(results).toHaveLength(1);
 	expect(results[0]?.fatalErrorCount).toBe(0);
 
@@ -56,6 +56,76 @@ test.each([
 ])("allows a long reason on $prefix", async ({ prefix, suffix }) => {
 	const source = `${prefix} no-debugger -- ${paragraph(width)}${suffix}\ndebugger;`;
 	expect(await diagnostics(source)).toEqual([]);
+	expect(await diagnostics(`\t${source}`)).toEqual([]);
+	expect(
+		await diagnostics(`${prefix.replace("eslint-", "Mention eslint-")} no-debugger -- ${paragraph(width)}${suffix}`),
+	).toEqual([expect.objectContaining({ messageId: "maxComment" })]);
+});
+
+test.each(["", " "])("allows JSX disable comments with spacing %j", async (spacing) => {
+	const wrap = (comment: string) => `const element = <>\n\t{${spacing}/* ${comment} */}\n</>;`;
+	const directive = `eslint-disable-next-line no-debugger -- ${paragraph(width)}`;
+
+	expect(await diagnostics(wrap(directive), "src/example.tsx")).toEqual([]);
+	expect(await diagnostics(wrap(`Mention ${directive}`), "src/example.tsx")).toEqual([
+		expect.objectContaining({ messageId: "maxComment" }),
+	]);
+});
+
+test.each([
+	{ prefix: "//", suffix: "" },
+	{ prefix: "///", suffix: "" },
+	{ prefix: "/*", suffix: " */" },
+])("allows a described type-error directive in $prefix", async ({ prefix, suffix }) => {
+	for (const separator of [" -- ", ": ", "-example "]) {
+		const directive = `@ts-expect-error${separator}${paragraph(width)}`;
+
+		expect(await diagnostics(`${prefix} ${directive}${suffix}`)).toEqual([]);
+		expect(await diagnostics(`${prefix} Mention ${directive}${suffix}`)).toEqual([
+			expect.objectContaining({ messageId: "maxComment" }),
+		]);
+	}
+});
+
+test.each(["@ts-ignore", "@ts-nocheck", "@ts-check"])("does not exempt %s", async (directive) =>
+	expect(await diagnostics(`// ${directive} -- ${paragraph(width)}`)).toEqual([
+		expect.objectContaining({ messageId: "maxComment" }),
+	]),
+);
+
+test.each(["eslint-disable-next-line no-debugger", "@ts-expect-error"])(
+	"does not mistake %s inside JSDoc prose for a directive",
+	async (directive) =>
+		expect(await diagnostics(`/**\n * // ${directive} -- ${paragraph(width)}\n */`)).toEqual([
+			expect.objectContaining({ messageId: "maxComment" }),
+		]),
+);
+
+test("registers the width rule for files outside the documentation globs", async () => {
+	const linter = new ESLint({
+		overrideConfig: { ...tseslint.configs.disableTypeChecked, files: ["**/*.jsx"] },
+	});
+	const text = paragraph(width - 3);
+
+	expect(await diagnostics(`// ${text}`, "scripts/lint/example.jsx", linter)).toEqual([]);
+	expect(await diagnostics(`// ${text}.`, "scripts/lint/example.jsx", linter)).toEqual([
+		expect.objectContaining({ messageId: "maxComment" }),
+	]);
+});
+
+test.each([
+	{ prefix: "// ", suffix: "", path: "scripts/lint/example.mts" },
+	{ prefix: "/* ", suffix: " */", path: "scripts/lint/example.mts" },
+	{ prefix: "/**\n * ", suffix: "\n */", path: "scripts/lint/example.mts" },
+	{ prefix: "/*\n", suffix: "\n*/", path: "scripts/lint/example.mts" },
+	{ prefix: "const element = <>\n\t{/* ", suffix: " */}\n</>;", path: "src/example.tsx" },
+])("preserves a single unbroken token after $prefix", async ({ prefix, suffix, path }) => {
+	const token = `packages/${"segment/".repeat(width)}/index.ts`;
+
+	expect(await diagnostics(`${prefix}${token}${suffix}`, path)).toEqual([]);
+	expect(await diagnostics(`${prefix}${token} description${suffix}`, path)).toEqual([
+		expect.objectContaining({ messageId: "maxComment" }),
+	]);
 });
 
 test.each([
