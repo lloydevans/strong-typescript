@@ -55,5 +55,8 @@
 	],
 	"dependencies": {
 		"@example/greeter": "*"
+	},
+	"overrides": {
+		"handlebars": "4.7.10"
 	}
 }
