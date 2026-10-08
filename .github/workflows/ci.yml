@@ -9,8 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  gate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Add entries here for more shards, e.g. [1, 2, 3, 4]. Indices and total come from the matrix jobs.
+        shard: [1]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -18,4 +23,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run verify-gate
+      - run: npm run verify-gate -- --shard=$((${{ strategy.job-index }} + 1))/${{ strategy.job-total }}
+
+  verify:
+    needs: gate
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every shard to succeed
+        env:
+          GATE_RESULT: ${{ needs.gate.result }}
+        run: test "$GATE_RESULT" = success

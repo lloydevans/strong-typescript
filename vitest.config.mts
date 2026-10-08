@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { readWorkspacePackages } from "./scripts/workspace/workspace-packages.mts";
 
@@ -15,5 +15,13 @@ export default defineConfig({
 	},
 	test: {
 		include: ["src/**/*.test.ts", "packages/*/src/**/*.test.ts", "scripts/**/*.test.mts"],
+		forceRerunTriggers: [
+			...configDefaults.forceRerunTriggers,
+			"**/{vitest,vite}.config.*",
+			"**/package-lock.json",
+			"**/eslint.config.*",
+			"**/tsconfig*.json",
+			"**/scripts/**/!(*.test).mts",
+		],
 	},
 });

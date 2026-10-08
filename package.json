@@ -13,9 +13,10 @@
 		"format": "npx --no-install prettier . --write",
 		"format-check": "npx --no-install prettier . --check",
 		"test": "npx --no-install vitest run",
+		"test-changed": "git diff --name-only origin/HEAD...HEAD -- && npm test -- --changed=origin/HEAD",
 		"test-watch": "npx --no-install vitest",
 		"mutation": "npx --no-install stryker run stryker.config.mts --incremental",
-		"verify-gate": "npm audit --audit-level=critical && npm run lint && npm run format-check && npm run typecheck && npm test && npm run build"
+		"verify-gate": "npm audit --audit-level=critical && npm run lint && npm run format-check && npm run typecheck && npm run build && npm test --"
 	},
 	"dependencies": {
 		"@example/greeter": "*"
