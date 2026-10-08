@@ -14,6 +14,7 @@ See [README.md](README.md) for requirements and commands.
 
 - Give every fact one home, in code, comments or documents, and refer to it from elsewhere. A copy has to be maintained and goes stale.
 - Avoid repeating code, within reason. Consider extracting anything likely to be duplicated.
+- Rely only on what a function's contract promises, whether a result or an effect. An extra call, delay or retry used to make something else work without that promise relies on incidental behaviour and adds an unrelated way to fail.
 - Use `.mts` wherever a repository-owned file would otherwise be `.mjs`, so the TypeScript configuration covers it.
 - Prefer a built-in array method, such as `.map`, `.filter` or `.reduce`, to a hand-written loop wherever one expresses the transformation.
 - Separate a function's logical blocks with a blank line, such as between checking input, computing a result and writing it out.
