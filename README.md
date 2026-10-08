@@ -32,4 +32,4 @@ Run `npm install` at the root to install dependencies and link the packages decl
 - [index.html](index.html) is the entry page. Vite uses its defaults without a configuration file, including its browser target and no production source maps.
 - Vite transpiles TypeScript without type-checking. Run `npm run typecheck` to check types; `npm run verify-gate` includes it before the tests and build.
 - TypeScript is pinned to the 6.x line.
-- Mutation testing uses [Stryker's incremental mode](https://stryker-mutator.io/docs/stryker-js/incremental/). Changes outside mutated source and test files can leave reused results stale; run `npm run mutation -- --force` for a fresh full run. CI does this on pushes to `master`.
+- Mutation testing uses [Stryker's incremental mode](https://stryker-mutator.io/docs/stryker-js/incremental/). Changes outside mutated source and test files can leave reused results stale; run `npm run mutation -- --force` for a fresh full run. CI does this on pushes to the default branch.
