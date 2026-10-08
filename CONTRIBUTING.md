@@ -40,6 +40,7 @@ See [README.md](README.md) for requirements and commands.
 
 - Keep comments brief and do not over-explain.
 - A line comment belongs directly above the code it describes, inside that logical block. Preserve the separating blank line above the comment; the comment never takes its place.
+- Wrap each comment paragraph at the last word that fits within Prettier's `printWidth` in `package.json`. Prettier does not reflow comments. Preserve paragraph and JSDoc tag boundaries, unbreakable text, disable comments and layouts whose spacing carries meaning.
 - Document purpose, parameters, results and failures with JSDoc, without repeating TypeScript types.
 - Inline callbacks need no JSDoc.
 - A function assigned to a local variable needs no JSDoc, as an inline callback needs none. Where a returned function's contract is a documented function type, assign the function to a variable typed with it and return the variable, rather than repeating the type's docs; keep anything specific to the implementation in a plain line comment.
