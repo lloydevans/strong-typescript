@@ -17,6 +17,9 @@
 		"mutation": "npx --no-install stryker run stryker.config.mts --incremental",
 		"verify-gate": "npm audit --audit-level=critical && npm run lint && npm run format-check && npm run typecheck && npm test && npm run build"
 	},
+	"dependencies": {
+		"@example/greeter": "*"
+	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@stryker-mutator/core": "^10.0.0",
@@ -53,10 +56,7 @@
 	"workspaces": [
 		"packages/*"
 	],
-	"dependencies": {
-		"@example/greeter": "*"
-	},
 	"overrides": {
-		"handlebars": "4.7.10"
+		"handlebars@4.7.9": "4.7.10"
 	}
 }
