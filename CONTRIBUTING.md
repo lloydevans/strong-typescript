@@ -23,6 +23,9 @@ See [README.md](README.md) for requirements and commands.
 - Do not nest one conditional expression inside another. Write a choice among several branches as a `switch`, a small function with early returns or a lookup table.
 - Write a number or bigint directly in a template literal: `` `row ${index + 1}` ``. Convert any other value to a string first: `${error.message}`, `${url.href}`.
 - Give a function at most three parameters. One that needs more takes a single object of named fields, as in `waitFor({ observe, signal, timeout, reason })`, and so does a table of test cases with more than three columns. Where another API dictates a longer signature, keep it under a disable comment with its reason.
+- Code that other code reuses lives in a package under `packages/`, with its own `package.json`, `tsconfig.json` and `src/index.ts`. The application stays under `src/`.
+- Import a package by its name, and only what its `src/index.ts` exports.
+- `scripts/lint/import-boundaries.mts` owns what may import what. Keep imports within it, and change the policy there.
 
 ## Lint and formatting
 

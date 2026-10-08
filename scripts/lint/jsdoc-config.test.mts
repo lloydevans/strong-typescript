@@ -1,7 +1,7 @@
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { expect, test } from "vitest";
-import { createDocumentationConfig } from "./jsdoc-config.mjs";
+import { createDocumentationConfig } from "./jsdoc-config.mts";
 
 const shippedEslint = new ESLint({ overrideConfig: tseslint.configs.disableTypeChecked });
 const eslint = new ESLint({
@@ -100,14 +100,119 @@ test.each([
 	},
 	{ node: "ExportNamedDeclaration", prefix: "", declaration: "export const value = 1;", count: 1 },
 	{ node: "ExportDefaultDeclaration", prefix: "", declaration: "export default 1;", count: 1 },
-	{ node: "ExportAllDeclaration", prefix: "", declaration: "export * from './other.js';", count: 1 },
-	{ node: "TSExportAssignment", prefix: "", declaration: "export = value;", count: 1 },
+	{ node: "TSExportAssignment", prefix: "", declaration: "export = 1;", count: 1 },
 	{ node: "TSNamespaceExportDeclaration", prefix: "", declaration: "export as namespace Library;", count: 1 },
 ])("covers the configured $node declaration", async ({ prefix, declaration, count }) => {
 	// Methods and class-valued variables have overlapping coverage; either check being removed must fail.
 	expect(await violations(`${prefix}\n${declaration}`)).toEqual(Array.from({ length: count }, () => "jsdoc/require-jsdoc"));
 	expect(await violations(`${prefix}\n/** Define the operation's state or behavior. */\n${declaration}`)).toEqual([]);
 });
+
+test.each([
+	'export { Greeter } from "./greeting";',
+	'export type { GreetingStyle } from "./greeting";',
+	'export * from "./greeting";',
+	'export * as greetings from "./greeting";',
+])("allows an undocumented re-export in the shipped configuration: %s", async (source) => {
+	expect(await violations(source, "packages/greeter/src/index.ts", shippedEslint)).toEqual([]);
+	expect(
+		await violations(`/** Expose the public greeting API. */\n${source}`, "packages/greeter/src/index.ts", shippedEslint),
+	).toEqual([]);
+});
+
+test("still requires documentation on a declaring export in the shipped configuration", async () => {
+	const source = "export const value = 1;";
+	expect(await violations(source, "packages/greeter/src/index.ts", shippedEslint)).toEqual(["jsdoc/require-jsdoc"]);
+	expect(await violations(`/** Store the initial value. */\n${source}`, "packages/greeter/src/index.ts", shippedEslint)).toEqual(
+		[],
+	);
+});
+
+test.each([
+	{
+		source: "/** First stored value. */\nconst a = 1;\n\n/** Second stored value. */\nconst b = 2;\n\n",
+		list: "export { a, b };",
+	},
+	{ source: "/** Accepted text input. */\ntype A = string;\n\n", list: "export type { A };" },
+])("allows a local export list in the shipped configuration: $list", async ({ source, list }) => {
+	expect(await violations(`${source}${list}`, "src/documentation-example.ts", shippedEslint)).toEqual([]);
+	expect(
+		await violations(`${source}/** Expose the documented names. */\n${list}`, "src/documentation-example.ts", shippedEslint),
+	).toEqual([]);
+});
+
+test.each([
+	{ declaration: "const a = 1;", list: "export { a };" },
+	{ declaration: "type A = string;", list: "export type { A };" },
+	{ declaration: "const a = 1;", list: "export default a;" },
+	{ declaration: "const a = 1;", list: "export = a;" },
+])("requires documentation on the declaration exported through $list", async ({ declaration, list }) => {
+	const results = await shippedEslint.lintText(`${declaration}\n\n${list}`, { filePath: "src/documentation-example.ts" });
+	expect(results).toHaveLength(1);
+	expect(results[0]?.fatalErrorCount).toBe(0);
+	expect(results.flatMap((result) => result.messages.filter((message) => message.ruleId?.startsWith("jsdoc/")))).toEqual([
+		expect.objectContaining({ ruleId: "jsdoc/require-jsdoc", line: 1, column: 1 }),
+	]);
+
+	expect(
+		await violations(
+			`/** Describe the stored data. */\n${declaration}\n\n${list}`,
+			"src/documentation-example.ts",
+			shippedEslint,
+		),
+	).toEqual([]);
+});
+
+test.each(["export default a;", "export = a;"])(
+	"allows an undocumented export of a documented name in the shipped configuration: %s",
+	async (statement) => {
+		const source = "/** First stored value. */\nconst a = 1;\n\n";
+
+		expect(await violations(`${source}${statement}`, "src/documentation-example.ts", shippedEslint)).toEqual([]);
+		expect(
+			await violations(`${source}/** Expose the stored value. */\n${statement}`, "src/documentation-example.ts", shippedEslint),
+		).toEqual([]);
+	},
+);
+
+test.each(["export default create();", "export default values.first;", "export = values.first;"])(
+	"still requires documentation on an export of an expression in the shipped configuration: %s",
+	async (statement) => {
+		expect(await violations(statement, "src/documentation-example.ts", shippedEslint)).toEqual(["jsdoc/require-jsdoc"]);
+		expect(
+			await violations(`/** Expose the first value. */\n${statement}`, "src/documentation-example.ts", shippedEslint),
+		).toEqual([]);
+	},
+);
+
+test.each([
+	{ declaration: "const a = 1;", statement: "export { a };" },
+	{ declaration: "interface A {}", statement: "export type { A };" },
+	{ declaration: "enum A {}", statement: "export { A };" },
+	{ declaration: "const a = 1;", statement: "export default a;" },
+	{ declaration: "interface A {}", statement: "export default A;" },
+	{ declaration: "enum A {}", statement: "export default A;" },
+])("requires documentation on $statement after $declaration in public-only coverage", async ({ declaration, statement }) => {
+	const source = `/** Describe the stored data. */\n${declaration}\n\n${statement}`;
+
+	expect(await violations(source, "src/documentation-example.ts", publicEslint)).toEqual(["jsdoc/require-jsdoc"]);
+	expect(
+		await violations(
+			source.replace(statement, `/** Expose the stored data. */\n${statement}`),
+			"src/documentation-example.ts",
+			publicEslint,
+		),
+	).toEqual([]);
+});
+
+test.each([
+	'export { a } from "./values";',
+	'export type { A } from "./values";',
+	'export * from "./values";',
+	'export * as values from "./values";',
+])("allows an undocumented re-export in public-only coverage: %s", async (source) =>
+	expect(await violations(source, "src/documentation-example.ts", publicEslint)).toEqual([]),
+);
 
 test.each([
 	["ArrowFunctionExpression", "DOC\nconst run = (name: string) => name;"],

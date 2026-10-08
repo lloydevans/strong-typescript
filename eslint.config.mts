@@ -2,7 +2,8 @@ import { defineConfig } from "eslint/config";
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
-import { documentationConfig } from "./scripts/jsdoc-config.mjs";
+import { documentationConfig } from "./scripts/lint/jsdoc-config.mts";
+import { importBoundaries, vitestImportCalls } from "./scripts/lint/import-boundaries.mts";
 
 /** Combine type-aware checks with documentation and member-order rules. */
 export default defineConfig(
@@ -33,6 +34,14 @@ export default defineConfig(
 			"no-restricted-syntax": [
 				"error",
 				{
+					selector: "ImportExpression[source.type!='Literal']",
+					message: "Use a literal import so lint can resolve and enforce its boundary.",
+				},
+				{
+					selector: `${vitestImportCalls}:not([arguments.0.type='Literal'][arguments.0.value=type(string)])`,
+					message: "Use a string literal target so lint can resolve and enforce its boundary.",
+				},
+				{
 					selector:
 						":matches(:matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration > VariableDeclarator > :matches(FunctionExpression, ArrowFunctionExpression, :matches(TSSatisfiesExpression, TSAsExpression, TSNonNullExpression)[expression.type=/^(FunctionExpression|ArrowFunctionExpression)$/]).init, ExportDefaultDeclaration > :matches(FunctionExpression, ArrowFunctionExpression).declaration)",
 					message: "Write a function declaration for a module-level function.",
@@ -58,4 +67,5 @@ export default defineConfig(
 		},
 	},
 	...documentationConfig,
+	...importBoundaries,
 );

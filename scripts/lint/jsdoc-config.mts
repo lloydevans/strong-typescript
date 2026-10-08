@@ -28,8 +28,24 @@ const declaredTypes = `:matches(TSTypeAliasDeclaration, TSInterfaceDeclaration, 
 /** Document members at every type depth, except conditional matching patterns. */
 const typeMembers = `:matches(ClassBody, TSInterfaceBody, ${declaredTypes} TSTypeLiteral) > :matches(TSMethodSignature, TSPropertySignature, TSCallSignatureDeclaration, TSConstructSignatureDeclaration, TSIndexSignature):not(TSConditionalType > *.extendsType *)`;
 
-/** Cover additional declarations and the members of named types. */
-const declarations = `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ExportNamedDeclaration, ExportDefaultDeclaration, ExportAllDeclaration, TSExportAssignment, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
+/** With every declaration covered, an export that declares nothing uses the documentation at its declaration. */
+const declaringExports =
+	"ExportNamedDeclaration[declaration], ExportDefaultDeclaration:not([declaration.type='Identifier']), TSExportAssignment:not([expression.type='Identifier'])";
+
+/**
+ * With publicOnly the plugin leaves a declaration exported by name unchecked, so only a re-export goes without a comment.
+ * It never reports an export assignment there, so `export = name;` stays unchecked.
+ */
+const publicExports = "ExportNamedDeclaration:not([source]), ExportDefaultDeclaration, TSExportAssignment";
+
+/**
+ * Cover declarations, named-type members and the exports that need a comment of their own.
+ * @param publicOnly - Whether the plugin checks only the exported surface.
+ * @returns A selector for the nodes that need documentation.
+ */
+function declarations(publicOnly: boolean) {
+	return `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ${publicOnly ? publicExports : declaringExports}, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
+}
 
 /** Preserve the plugin's function contexts and check type contracts, not just their implementations. */
 const functionContexts = [
@@ -81,7 +97,7 @@ export function createDocumentationConfig(publicOnly = documentPublicOnly) {
 				"jsdoc/require-jsdoc": [
 					"error",
 					{
-						contexts: [declarations, classProperties, ":matches(Program, TSModuleBlock) > VariableDeclaration"],
+						contexts: [declarations(publicOnly), classProperties, ":matches(Program, TSModuleBlock) > VariableDeclaration"],
 						publicOnly,
 						skipInterveningOverloadedDeclarations: false,
 						require: { FunctionDeclaration: true, ClassDeclaration: true, ClassExpression: true },

@@ -1,0 +1,11 @@
+{
+	"name": "@example/greeter",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@example/text": "*"
+	}
+}

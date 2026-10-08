@@ -3,6 +3,8 @@
 	"compilerOptions": {
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
+		"resolveJsonModule": true,
+		"allowImportingTsExtensions": true,
 		"lib": ["ES2023"],
 		"types": ["node"]
 	},
