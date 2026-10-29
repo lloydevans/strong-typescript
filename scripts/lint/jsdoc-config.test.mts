@@ -108,17 +108,23 @@ test.each([
 	expect(await violations(`${prefix}\n/** Define the operation's state or behavior. */\n${declaration}`)).toEqual([]);
 });
 
-test.each([
-	'export { Greeter } from "./greeting";',
-	'export type { GreetingStyle } from "./greeting";',
-	'export * from "./greeting";',
-	'export * as greetings from "./greeting";',
-])("allows an undocumented re-export in the shipped configuration: %s", async (source) => {
-	expect(await violations(source, "packages/greeter/src/index.ts", shippedEslint)).toEqual([]);
-	expect(
-		await violations(`/** Expose the public greeting API. */\n${source}`, "packages/greeter/src/index.ts", shippedEslint),
-	).toEqual([]);
-});
+test.each(['export { Greeter } from "./greeting";', 'export type { GreetingStyle } from "./greeting";'])(
+	"allows an undocumented re-export in the shipped configuration: %s",
+	async (source) => {
+		expect(await violations(source, "packages/greeter/src/index.ts", shippedEslint)).toEqual([]);
+		expect(
+			await violations(`/** Expose the public greeting API. */\n${source}`, "packages/greeter/src/index.ts", shippedEslint),
+		).toEqual([]);
+	},
+);
+
+test.each(['export * from "./greeting";', 'export * as greetings from "./greeting";'])(
+	"allows an undocumented export * in the documentation configuration: %s",
+	async (source) => {
+		expect(await violations(source, "packages/greeter/src/index.ts")).toEqual([]);
+		expect(await violations(`/** Expose the public greeting API. */\n${source}`, "packages/greeter/src/index.ts")).toEqual([]);
+	},
+);
 
 test("still requires documentation on a declaring export in the shipped configuration", async () => {
 	const source = "export const value = 1;";
@@ -134,11 +140,9 @@ test.each([
 		list: "export { a, b };",
 	},
 	{ source: "/** Accepted text input. */\ntype A = string;\n\n", list: "export type { A };" },
-])("allows a local export list in the shipped configuration: $list", async ({ source, list }) => {
-	expect(await violations(`${source}${list}`, "src/documentation-example.ts", shippedEslint)).toEqual([]);
-	expect(
-		await violations(`${source}/** Expose the documented names. */\n${list}`, "src/documentation-example.ts", shippedEslint),
-	).toEqual([]);
+])("allows a local export list in the documentation configuration: $list", async ({ source, list }) => {
+	expect(await violations(`${source}${list}`)).toEqual([]);
+	expect(await violations(`${source}/** Expose the documented names. */\n${list}`)).toEqual([]);
 });
 
 test.each([
@@ -147,20 +151,14 @@ test.each([
 	{ declaration: "const a = 1;", list: "export default a;" },
 	{ declaration: "const a = 1;", list: "export = a;" },
 ])("requires documentation on the declaration exported through $list", async ({ declaration, list }) => {
-	const results = await shippedEslint.lintText(`${declaration}\n\n${list}`, { filePath: "src/documentation-example.ts" });
+	const results = await eslint.lintText(`${declaration}\n\n${list}`, { filePath: "src/documentation-example.ts" });
 	expect(results).toHaveLength(1);
 	expect(results[0]?.fatalErrorCount).toBe(0);
 	expect(results.flatMap((result) => result.messages.filter((message) => message.ruleId?.startsWith("jsdoc/")))).toEqual([
 		expect.objectContaining({ ruleId: "jsdoc/require-jsdoc", line: 1, column: 1 }),
 	]);
 
-	expect(
-		await violations(
-			`/** Describe the stored data. */\n${declaration}\n\n${list}`,
-			"src/documentation-example.ts",
-			shippedEslint,
-		),
-	).toEqual([]);
+	expect(await violations(`/** Describe the stored data. */\n${declaration}\n\n${list}`)).toEqual([]);
 });
 
 test.each(["export default a;", "export = a;"])(
@@ -528,7 +526,15 @@ test("the no-tag-types selector covers tags outside parameters and returns", asy
 		"/**\n * Refuse unsupported input.\n * @throws {@link Error} When input cannot be accepted.\n */\nfunction refuse() { throw Error(); }";
 
 	expect(await violations(source)).toEqual([]);
-	expect(await violations(source.replace("{@link Error}", "{Error}"))).toContain("jsdoc/no-restricted-syntax");
+	const results = await eslint.lintText(source.replace("{@link Error}", "{Error}"), {
+		filePath: "scripts/documentation-example.mts",
+	});
+	expect(results.flatMap((result) => result.messages)).toContainEqual(
+		expect.objectContaining({
+			ruleId: "jsdoc/no-restricted-syntax",
+			message: "Keep types in TypeScript declarations, not JSDoc tags.",
+		}),
+	);
 });
 
 test("the description selector covers unattached blocks", async () => {
@@ -580,8 +586,8 @@ test("covers .mjs files without requiring a TypeScript project", async () => {
 });
 
 test("wires the documentation fragments into the shipped configuration", async () => {
-	const production: unknown = await shippedEslint.calculateConfigForFile("src/greeting.ts");
-	const tests: unknown = await shippedEslint.calculateConfigForFile("src/greeting.test.ts");
+	const production: unknown = await shippedEslint.calculateConfigForFile("src/greeter.ts");
+	const tests: unknown = await shippedEslint.calculateConfigForFile("src/greeter.test.ts");
 
 	expect(production).toHaveProperty(["rules", "jsdoc/require-jsdoc", 1, "contexts", "length"], 3);
 	expect(production).toHaveProperty(["rules", "jsdoc/require-jsdoc", 1, "publicOnly"], false);

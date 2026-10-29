@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { Greeter, type GreetingStyle, recipientSummary } from "./greeting";
+import { Greeter, type GreetingStyle, namesOnlyStyle, recipientSummary } from "./greeter";
 
 describe("Greeter", () => {
 	it("greets the world by default", () => expect(new Greeter().greet()).toBe("Hello World"));
+
+	it("accepts a single recipient", () => expect(new Greeter().greet(" Ada ")).toBe("Hello Ada"));
 
 	it("normalizes names and preserves their order without changing the input", () => {
 		const greeter = new Greeter();
@@ -16,8 +18,16 @@ describe("Greeter", () => {
 
 	it("returns empty text for an empty recipient list", () => expect(new Greeter().greet([])).toBe(""));
 
+	it("lists recipients without the prefix", () => {
+		const greeter = new Greeter(namesOnlyStyle);
+
+		expect(greeter.greet(" Ada ")).toBe("Ada");
+		expect(greeter.greet([" Ada ", "Lin"])).toBe("Ada\nLin");
+	});
+
 	it.each(["", " ", "\t"])("refuses blank names without affecting a later call: %j", (name) => {
 		const greeter = new Greeter();
+		expect(() => greeter.greet(name)).toThrow("Recipient must not be blank");
 		expect(() => greeter.greet(["Ada", name])).toThrow("Recipient must not be blank");
 		expect(greeter.greet(["Lin"])).toBe("Hello Lin");
 	});

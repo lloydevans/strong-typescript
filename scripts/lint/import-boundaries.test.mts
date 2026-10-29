@@ -38,15 +38,15 @@ const allowed: Record<Role, Role[]> = {
 const roles = Object.keys(files) as Role[];
 const directions = roles.flatMap((from) => roles.map((to) => ({ from, to, permitted: allowed[from].includes(to) })));
 const directory = mkdtempDisposableSync(join(tmpdir(), "import-boundaries-"));
-const root = join(directory.path, "Project");
-const configPath = fileURLToPath(new URL("../../eslint.config.mts", import.meta.url));
+const ROOT = join(directory.path, "Project");
+const CONFIG_PATH = fileURLToPath(new URL("../../eslint.config.mts", import.meta.url));
 
-function createLinter(cwd = root) {
+function createLinter(cwd = ROOT) {
 	const policy = createImportBoundaries(cwd).map(({ settings = {}, rules = {} }) => ({ settings, rules }));
 
 	return new ESLint({
 		cwd,
-		overrideConfigFile: configPath,
+		overrideConfigFile: CONFIG_PATH,
 		overrideConfig: [...policy, tseslint.configs.disableTypeChecked],
 	});
 }
@@ -77,35 +77,35 @@ beforeAll(() => {
 		"packages/second/src/value.ts",
 		"packages/second/src/value.test.ts",
 	]) {
-		mkdirSync(dirname(join(root, path)), { recursive: true });
-		writeFileSync(join(root, path), "export const value = 1;\n");
+		mkdirSync(dirname(join(ROOT, path)), { recursive: true });
+		writeFileSync(join(ROOT, path), "export const value = 1;\n");
 	}
 
 	writeFileSync(
-		join(root, "tsconfig.json"),
+		join(ROOT, "tsconfig.json"),
 		JSON.stringify({
 			compilerOptions: { module: "ESNext", moduleResolution: "bundler" },
 			include: ["**/*.ts", "**/*.mts"],
 		}),
 	);
-	writeFileSync(join(root, "src/tsconfig.json"), "{}");
-	writeFileSync(join(root, "src/style.css"), "body {}");
+	writeFileSync(join(ROOT, "src/tsconfig.json"), "{}");
+	writeFileSync(join(ROOT, "src/style.css"), "body {}");
 	writeFileSync(
-		join(root, "package.json"),
+		join(ROOT, "package.json"),
 		JSON.stringify({
 			workspaces: ["packages/*"],
 			dependencies: { "@example/first": "*", "@example/second": "*" },
 			devDependencies: { vitest: "*", eslint: "*" },
 		}),
 	);
-	writeFileSync(join(root, "README.md"), "Unclassified");
+	writeFileSync(join(ROOT, "README.md"), "Unclassified");
 	writeFileSync(join(directory.path, "outside.ts"), "export const outside = 1;");
-	mkdirSync(join(root, "node_modules/@example"), { recursive: true });
-	mkdirSync(join(root, "node_modules/undeclared"), { recursive: true });
-	writeFileSync(join(root, "node_modules/undeclared/index.ts"), "export const value = 1;");
+	mkdirSync(join(ROOT, "node_modules/@example"), { recursive: true });
+	mkdirSync(join(ROOT, "node_modules/undeclared"), { recursive: true });
+	writeFileSync(join(ROOT, "node_modules/undeclared/index.ts"), "export const value = 1;");
 
 	for (const name of ["first", "second"]) {
-		const path = join(root, "packages", name);
+		const path = join(ROOT, "packages", name);
 		writeFileSync(
 			join(path, "package.json"),
 			JSON.stringify({
@@ -115,7 +115,7 @@ beforeAll(() => {
 			}),
 		);
 		writeFileSync(join(path, "tsconfig.json"), "{}");
-		symlinkSync(path, join(root, "node_modules/@example", name), "junction");
+		symlinkSync(path, join(ROOT, "node_modules/@example", name), "junction");
 	}
 });
 
@@ -127,7 +127,7 @@ test.each(
 		{ owner: "package", manifest: "packages/first/package.json", importer: "packages/first/src/value.ts" },
 	].flatMap((owner) => ["dependencies", "devDependencies"].map((field) => ({ ...owner, field }))),
 )("requires the $owner to declare imports under $field", async ({ manifest, importer, field }) => {
-	const path = join(root, manifest);
+	const path = join(ROOT, manifest);
 	const original = readFileSync(path);
 	const identity =
 		manifest === "package.json" ? { workspaces: ["packages/*"] } : { name: "@example/first", exports: { ".": "./src/index.ts" } };
@@ -283,9 +283,9 @@ test("allows declared third parties and Node built-ins", async () => {
 
 test.skipIf(process.platform !== "win32")("classifies Windows roots through case variants and a junction", async () => {
 	const junction = join(directory.path, "linked-root");
-	symlinkSync(root, junction, "junction");
+	symlinkSync(ROOT, junction, "junction");
 
-	for (const cwd of [root, root.toUpperCase(), junction]) {
+	for (const cwd of [ROOT, ROOT.toUpperCase(), junction]) {
 		const linter = createLinter(cwd);
 		expect(await diagnostics('import "./value";', "src/index.ts", linter)).toEqual([]);
 		expect(await diagnostics('import "@example/first";', "src/index.ts", linter)).toEqual([]);
@@ -306,12 +306,12 @@ test("resolves local imports and distinguishes missing and core imports", () => 
 		["src/index.ts", "./style.css", "src/style.css"],
 		["eslint.config.mts", "./scripts/value.mts", "scripts/value.mts"],
 	] as const) {
-		expect(resolve(target, join(root, filePath), { root, project: join(root, "tsconfig.json") })).toEqual({
+		expect(resolve(target, join(ROOT, filePath), { root: ROOT, project: join(ROOT, "tsconfig.json") })).toEqual({
 			found: true,
-			path: join(root, expected),
+			path: join(ROOT, expected),
 		});
 	}
 
-	expect(resolve("./missing", join(root, "src/index.ts"), { root })).toEqual({ found: false });
-	expect(resolve("node:url", join(root, "scripts/value.mts"), { root })).toEqual({ found: true, path: null });
+	expect(resolve("./missing", join(ROOT, "src/index.ts"), { root: ROOT })).toEqual({ found: false });
+	expect(resolve("node:url", join(ROOT, "scripts/value.mts"), { root: ROOT })).toEqual({ found: true, path: null });
 });

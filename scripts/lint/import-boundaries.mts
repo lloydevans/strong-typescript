@@ -18,7 +18,7 @@ import { defineConfig } from "eslint/config";
 import { readWorkspacePackages } from "../workspace/workspace-packages.mts";
 
 /** Vitest calls whose targets must be literal strings for boundary resolution. */
-export const vitestImportCalls =
+export const VITEST_IMPORT_CALLS =
 	"CallExpression[callee.object.name=/^(vi|vitest)$/][callee.property.name=/^(mock|doMock|importActual|importMock)$/]";
 
 /**
@@ -54,7 +54,7 @@ const settings = {
 		{ selector: "TSImportType > Literal", name: "import-type", kind: "type" },
 		{ selector: "TSExternalModuleReference > Literal", name: "import-equals", kind: "value" },
 		{
-			selector: `${vitestImportCalls} > Literal:first-child`,
+			selector: `${VITEST_IMPORT_CALLS} > Literal:first-child`,
 			name: "vitest",
 			kind: "value",
 		},

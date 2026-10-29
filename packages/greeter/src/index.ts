@@ -1,2 +1,2 @@
-export { Greeter, recipientSummary } from "./greeting";
-export type { GreetingStyle } from "./greeting";
+export { Greeter, namesOnlyStyle, recipientSummary } from "./greeter";
+export type { GreetingStyle, Recipients } from "./greeter";

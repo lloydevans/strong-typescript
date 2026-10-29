@@ -3,40 +3,40 @@ import jsdoc from "eslint-plugin-jsdoc";
 import stylistic from "@stylistic/eslint-plugin";
 
 /** false covers the listed declarations; true delegates to the plugin's publicOnly option. */
-const documentPublicOnly = false;
+const DOCUMENT_PUBLIC_ONLY = false;
 
 /** Inline function arguments and JSX attribute handlers need no separate documentation. */
-const inlineCallbacks =
+const INLINE_CALLBACKS =
 	":matches(:matches(CallExpression, NewExpression) > :matches(FunctionExpression, ArrowFunctionExpression).arguments, JSXAttribute > JSXExpressionContainer > :matches(FunctionExpression, ArrowFunctionExpression))";
 
 /** An object's declared type documents function-valued properties; accessors still need their own documentation. */
-const objectFunctions = 'ObjectExpression > Property[kind="init"] > :matches(FunctionExpression, ArrowFunctionExpression).value';
+const OBJECT_FUNCTIONS = 'ObjectExpression > Property[kind="init"] > :matches(FunctionExpression, ArrowFunctionExpression).value';
 
 /** A function variable is documented by its declaration or enclosing function. */
-const variableFunctions = "VariableDeclarator > :matches(FunctionExpression, ArrowFunctionExpression).init";
+const VARIABLE_FUNCTIONS = "VariableDeclarator > :matches(FunctionExpression, ArrowFunctionExpression).init";
 
 /** Require comments on class fields. */
-const classProperties =
+const CLASS_PROPERTIES =
 	":matches(PropertyDefinition, TSAbstractPropertyDefinition, AccessorProperty, TSAbstractAccessorProperty)";
 
 /** Select callables whose parameter and return types own their documentation. */
-const documentedFunctions = `:matches(:function, TSDeclareFunction, TSEmptyBodyFunctionExpression):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
+const DOCUMENTED_FUNCTIONS = `:matches(:function, TSDeclareFunction, TSEmptyBodyFunctionExpression):not(${INLINE_CALLBACKS}):not(${OBJECT_FUNCTIONS}):not(${VARIABLE_FUNCTIONS})`;
 
 /** Enter declared types without entering initializers or function bodies. */
-const declaredTypes = `:matches(TSTypeAliasDeclaration, TSInterfaceDeclaration, ClassBody > TSIndexSignature, ${classProperties} > TSTypeAnnotation, :matches(ClassDeclaration, ClassExpression, ${documentedFunctions}) > :matches(TSTypeAnnotation, TSTypeParameterDeclaration, TSTypeParameterInstantiation, TSClassImplements), ${documentedFunctions} > *.params > TSTypeAnnotation, ${documentedFunctions} > AssignmentPattern.params > *.left > TSTypeAnnotation, :matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration > VariableDeclarator > *.id > TSTypeAnnotation)`;
+const DECLARED_TYPES = `:matches(TSTypeAliasDeclaration, TSInterfaceDeclaration, ClassBody > TSIndexSignature, ${CLASS_PROPERTIES} > TSTypeAnnotation, :matches(ClassDeclaration, ClassExpression, ${DOCUMENTED_FUNCTIONS}) > :matches(TSTypeAnnotation, TSTypeParameterDeclaration, TSTypeParameterInstantiation, TSClassImplements), ${DOCUMENTED_FUNCTIONS} > *.params > TSTypeAnnotation, ${DOCUMENTED_FUNCTIONS} > AssignmentPattern.params > *.left > TSTypeAnnotation, :matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration > VariableDeclarator > *.id > TSTypeAnnotation)`;
 
 /** Document members at every type depth, except conditional matching patterns. */
-const typeMembers = `:matches(ClassBody, TSInterfaceBody, ${declaredTypes} TSTypeLiteral) > :matches(TSMethodSignature, TSPropertySignature, TSCallSignatureDeclaration, TSConstructSignatureDeclaration, TSIndexSignature):not(TSConditionalType > *.extendsType *)`;
+const TYPE_MEMBERS = `:matches(ClassBody, TSInterfaceBody, ${DECLARED_TYPES} TSTypeLiteral) > :matches(TSMethodSignature, TSPropertySignature, TSCallSignatureDeclaration, TSConstructSignatureDeclaration, TSIndexSignature):not(TSConditionalType > *.extendsType *)`;
 
 /** With every declaration covered, an export that declares nothing uses the documentation at its declaration. */
-const declaringExports =
+const DECLARING_EXPORTS =
 	"ExportNamedDeclaration[declaration], ExportDefaultDeclaration:not([declaration.type='Identifier']), TSExportAssignment:not([expression.type='Identifier'])";
 
 /**
  * With publicOnly the plugin leaves a declaration exported by name unchecked, so only a re-export goes without a comment.
  * It never reports an export assignment there, so `export = name;` stays unchecked.
  */
-const publicExports = "ExportNamedDeclaration:not([source]), ExportDefaultDeclaration, TSExportAssignment";
+const PUBLIC_EXPORTS = "ExportNamedDeclaration:not([source]), ExportDefaultDeclaration, TSExportAssignment";
 
 /**
  * Cover declarations, named-type members and the exports that need a comment of their own.
@@ -44,7 +44,7 @@ const publicExports = "ExportNamedDeclaration:not([source]), ExportDefaultDeclar
  * @returns A selector for the nodes that need documentation.
  */
 function declarations(publicOnly: boolean) {
-	return `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ${publicOnly ? publicExports : declaringExports}, TSNamespaceExportDeclaration, ${typeMembers}):not(${inlineCallbacks}):not(${objectFunctions}):not(${variableFunctions})`;
+	return `:matches(FunctionExpression, ArrowFunctionExpression, MethodDefinition, TSAbstractMethodDefinition, TSDeclareFunction, TSInterfaceDeclaration, TSTypeAliasDeclaration, TSEnumDeclaration, TSEnumMember, TSModuleDeclaration:not(ExportNamedDeclaration > TSModuleDeclaration), ${publicOnly ? PUBLIC_EXPORTS : DECLARING_EXPORTS}, TSNamespaceExportDeclaration, ${TYPE_MEMBERS}):not(${INLINE_CALLBACKS}):not(${OBJECT_FUNCTIONS}):not(${VARIABLE_FUNCTIONS})`;
 }
 
 /** Preserve the plugin's function contexts and check type contracts, not just their implementations. */
@@ -58,11 +58,11 @@ const functionContexts = [
 ];
 
 /** Body-less signatures need explicit result checks because the plugin cannot infer their returns. */
-const signatures =
+const SIGNATURES =
 	":matches(TSEmptyBodyFunctionExpression, TSCallSignatureDeclaration, TSConstructSignatureDeclaration, TSConstructorType)";
 
 /** Check function-typed fields on their documented owner, including abstract and constructor-valued fields. */
-const functionFields =
+const FUNCTION_FIELDS =
 	":matches(PropertyDefinition, TSAbstractPropertyDefinition, AccessorProperty, TSAbstractAccessorProperty, TSPropertySignature)[typeAnnotation.typeAnnotation.type=/^TS(Function|Constructor)Type$/]";
 
 /**
@@ -70,7 +70,7 @@ const functionFields =
  * @param publicOnly - Whether to require documentation only for the exported surface.
  * @returns Lint fragments for production and test files.
  */
-export function createDocumentationConfig(publicOnly = documentPublicOnly) {
+export function createDocumentationConfig(publicOnly = DOCUMENT_PUBLIC_ONLY) {
 	return defineConfig(
 		{
 			files: ["**/*.{js,mjs,cjs,ts,mts,tsx,cts}"],
@@ -97,7 +97,7 @@ export function createDocumentationConfig(publicOnly = documentPublicOnly) {
 				"jsdoc/require-jsdoc": [
 					"error",
 					{
-						contexts: [declarations(publicOnly), classProperties, ":matches(Program, TSModuleBlock) > VariableDeclaration"],
+						contexts: [declarations(publicOnly), CLASS_PROPERTIES, ":matches(Program, TSModuleBlock) > VariableDeclaration"],
 						publicOnly,
 						skipInterveningOverloadedDeclarations: false,
 						require: { FunctionDeclaration: true, ClassDeclaration: true, ClassExpression: true },
@@ -106,7 +106,7 @@ export function createDocumentationConfig(publicOnly = documentPublicOnly) {
 				"jsdoc/check-param-names": ["error", { checkDestructured: false }],
 				"jsdoc/require-param": [
 					"error",
-					{ contexts: [...functionContexts, signatures, functionFields], checkSetters: true, checkDestructured: false },
+					{ contexts: [...functionContexts, SIGNATURES, FUNCTION_FIELDS], checkSetters: true, checkDestructured: false },
 				],
 				"jsdoc/require-returns": [
 					"error",
@@ -114,11 +114,11 @@ export function createDocumentationConfig(publicOnly = documentPublicOnly) {
 						contexts: [
 							...functionContexts,
 							{
-								context: `${signatures}[returnType]:not([returnType.typeAnnotation.type=/^TS(Void|Undefined|Never)Keyword$/])`,
+								context: `${SIGNATURES}[returnType]:not([returnType.typeAnnotation.type=/^TS(Void|Undefined|Never)Keyword$/])`,
 								forceRequireReturn: true,
 							},
 							{
-								context: `${functionFields}:not([typeAnnotation.typeAnnotation.returnType.typeAnnotation.type=/^TS(Void|Undefined|Never)Keyword$/])`,
+								context: `${FUNCTION_FIELDS}:not([typeAnnotation.typeAnnotation.returnType.typeAnnotation.type=/^TS(Void|Undefined|Never)Keyword$/])`,
 								forceRequireReturn: true,
 							},
 						],

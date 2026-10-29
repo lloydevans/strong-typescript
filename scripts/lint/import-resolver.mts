@@ -3,7 +3,7 @@ import { relative, resolve as resolvePath } from "node:path";
 import { resolve as resolveTypeScript, type TypeScriptResolverOptions } from "eslint-import-resolver-typescript";
 
 /** The resolver interface used by the boundaries plugin. */
-export const interfaceVersion = 2;
+export const interfaceVersion = 2; // eslint-disable-line @typescript-eslint/naming-convention -- The resolver interface dictates this name.
 
 /**
  * Resolve TypeScript imports with the same root spelling as the boundary configuration.
