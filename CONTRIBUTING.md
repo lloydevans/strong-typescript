@@ -10,11 +10,24 @@ See [README.md](README.md) for requirements and commands.
 - Prefer an existing type name to an indexed access. Where no separate name exists, an implementation or test double may use the declared function signature of the member it supplies, such as `vi.fn<Client["call"]>()`. A type-level test may likewise reference the declared member whose type it checks. These uses do not replace naming a nested data shape when another function needs that shape. Where code across a boundary owns the shape, whether an internal module or a third-party package, use its type. For a third-party contract, use an exported type name where available; otherwise derive the needed type from its public declaration. Deriving is fine for a type inferred from a schema, a set's type from its `as const` object, and a lookup by a type parameter such as `Args[K]`.
 - Use only erasable TypeScript syntax, as `erasableSyntaxOnly` enforces.
 
+## Naming
+
+- Name variables, functions, parameters, properties and methods in `camelCase`.
+- Name classes, interfaces, type aliases and type parameters in `PascalCase`, with no `I` prefix on an interface.
+- Name a module-level constant in `UPPER_CASE` when it holds a boolean, number or string.
+- Treat an acronym as a word: `parseUrl` and `HttpClient`, not `parseURL` and `HTTPClient`.
+- Do not start or end a name with an underscore, except a leading one on a parameter that is deliberately unused.
+- Name files in `kebab-case`.
+
 ## Code
 
 - Give every fact one home, in code, comments or documents, and refer to it from elsewhere. A copy has to be maintained and goes stale.
 - Avoid repeating code, within reason. Consider extracting anything likely to be duplicated.
 - Rely only on what a function's contract promises, whether a result or an effect. An extra call, delay or retry used to make something else work without that promise relies on incidental behaviour and adds an unrelated way to fail.
+- Give each file one main export, named for it: `waitFor` lives in `wait-for.ts`. Parts that form one contract or change together share a file.
+- Give a part its own file when it is used alone or replaced alone in a test.
+- Export a name on its declaration. Do not re-export, except from a library's entry file.
+- Prefer a named export to a default export. Use a default export only where a tool requires one, such as a configuration file.
 - Use `.mts` wherever a repository-owned file would otherwise be `.mjs`, so the TypeScript configuration covers it.
 - Prefer a built-in array method, such as `.map`, `.filter` or `.reduce`, to a hand-written loop wherever one expresses the transformation.
 - Separate a function's logical blocks with a blank line, such as between checking input, computing a result and writing it out.
@@ -51,7 +64,7 @@ See [README.md](README.md) for requirements and commands.
 
 ## Testing
 
-- Keep each test beside the code it covers.
+- Keep each test beside the module it covers, named for it: `wait-for.test.ts` covers `wait-for.ts`.
 - Every guard or fix needs a test that fails without it. Mutation testing checks this for the source it covers; where it does not reach, remove the guard or fix temporarily and confirm the test fails.
 - A test should be able to fail because of a change to code in this repository. If only a change in a dependency could fail it, leave it out.
 - Mutation testing can be slow, so it runs apart from the gate: on pull requests or on demand, as the project needs. Run `npm run mutation` locally at sensible intervals, such as after a series of commits for a pull request.

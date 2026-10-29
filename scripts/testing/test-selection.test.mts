@@ -8,9 +8,9 @@ import { configDefaults } from "vitest/config";
 import { createVitest, type Vitest } from "vitest/node";
 import manifest from "../../package.json" with { type: "json" };
 
-const project = fileURLToPath(new URL("../../", import.meta.url));
+const PROJECT = fileURLToPath(new URL("../../", import.meta.url));
 const directory = mkdtempDisposableSync(join(tmpdir(), "test-selection-"));
-const root = directory.path;
+const ROOT = directory.path;
 const testFiles = [
 	"packages/example/src/value.test.ts",
 	"scripts/tools/tool.test.mts",
@@ -20,16 +20,16 @@ const testFiles = [
 let runner: Vitest;
 
 function write(path: string, content: string) {
-	mkdirSync(dirname(join(root, path)), { recursive: true });
-	writeFileSync(join(root, path), content);
+	mkdirSync(dirname(join(ROOT, path)), { recursive: true });
+	writeFileSync(join(ROOT, path), content);
 }
 
 beforeAll(async () => {
 	for (const path of ["vitest.config.mts", "scripts/workspace/workspace-packages.mts"]) {
-		mkdirSync(dirname(join(root, path)), { recursive: true });
-		copyFileSync(join(project, path), join(root, path));
+		mkdirSync(dirname(join(ROOT, path)), { recursive: true });
+		copyFileSync(join(PROJECT, path), join(ROOT, path));
 	}
-	symlinkSync(join(project, "node_modules"), join(root, "node_modules"), "junction");
+	symlinkSync(join(PROJECT, "node_modules"), join(ROOT, "node_modules"), "junction");
 	write("package.json", JSON.stringify({ workspaces: ["packages/*"] }));
 	write("packages/example/package.json", JSON.stringify({ name: "@fixture/example", exports: { ".": "./src/index.ts" } }));
 	write("packages/example/src/index.ts", "export const value = 1;");
@@ -51,7 +51,7 @@ test("uses its dependency", () => {
 		),
 	);
 
-	runner = await createVitest("test", { root, watch: false }, { server: { watch: null } });
+	runner = await createVitest("test", { root: ROOT, watch: false }, { server: { watch: null } });
 }, 15000);
 
 afterAll(async () => {
@@ -76,10 +76,10 @@ test.each([
 	"scripts/tools/tool.mts",
 	"scripts/workspace/workspace-packages.mts",
 ])("selects every test when %s changes", async (path) => {
-	runner.config.related = [join(root, path).replaceAll("\\", "/")];
+	runner.config.related = [join(ROOT, path).replaceAll("\\", "/")];
 	const selected = await runner.getRelevantTestSpecifications();
 
-	expect(selected.map((spec) => relative(root, spec.moduleId).replaceAll("\\", "/")).sort()).toEqual(testFiles);
+	expect(selected.map((spec) => relative(ROOT, spec.moduleId).replaceAll("\\", "/")).sort()).toEqual(testFiles);
 });
 
 test.each([
@@ -88,15 +88,15 @@ test.each([
 	{ path: "scripts/tools/tool.test.mts", expected: ["scripts/tools/tool.test.mts"] },
 	{ path: "README.md", expected: [] },
 ])("selects only dependants of $path", async ({ path, expected }) => {
-	runner.config.related = [join(root, path).replaceAll("\\", "/")];
+	runner.config.related = [join(ROOT, path).replaceAll("\\", "/")];
 	const selected = await runner.getRelevantTestSpecifications();
 
-	expect(selected.map((spec) => relative(root, spec.moduleId).replaceAll("\\", "/")).sort()).toEqual(expected);
+	expect(selected.map((spec) => relative(ROOT, spec.moduleId).replaceAll("\\", "/")).sort()).toEqual(expected);
 });
 
 function runScript(name: string, args: string[] = []) {
 	return spawnSync(`npm run ${name} -- ${args.join(" ")}`, {
-		cwd: root,
+		cwd: ROOT,
 		shell: true,
 		encoding: "utf8",
 		timeout: 30000,
@@ -104,7 +104,7 @@ function runScript(name: string, args: string[] = []) {
 }
 
 function readLines(path: string) {
-	return readFileSync(join(root, path), "utf8").trim().split("\n").filter(Boolean);
+	return readFileSync(join(ROOT, path), "utf8").trim().split("\n").filter(Boolean);
 }
 
 test("refuses an unresolved changed reference before starting tests", () => {
@@ -114,14 +114,14 @@ test("refuses an unresolved changed reference before starting tests", () => {
 	write("package.json", JSON.stringify({ scripts: { "test-changed": script, test: "node test-sentinel.mts" } }));
 	expect(runScript("test").stdout).toContain("TESTS_STARTED");
 
-	const gitDirectory = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: project, encoding: "utf8" });
+	const gitDirectory = spawnSync("git", ["rev-parse", "--absolute-git-dir"], { cwd: PROJECT, encoding: "utf8" });
 	expect(gitDirectory.status, gitDirectory.stderr).toBe(0);
 	const result = spawnSync("npm run test-changed", {
-		cwd: root,
+		cwd: ROOT,
 		shell: true,
 		encoding: "utf8",
 		timeout: 15000,
-		env: { ...process.env, GIT_DIR: gitDirectory.stdout.trim(), GIT_WORK_TREE: project },
+		env: { ...process.env, GIT_DIR: gitDirectory.stdout.trim(), GIT_WORK_TREE: PROJECT },
 	});
 
 	expect(result.error).toBeUndefined();

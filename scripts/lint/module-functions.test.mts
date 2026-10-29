@@ -12,6 +12,10 @@ test.each([
 	["a namespace function constant", "namespace Operations { const run = () => {}; }", 1],
 	["a default-exported arrow", "export default () => 1;", 1],
 	["a default-exported function expression", "export default (function () { return 1; });", 1],
+	["a wrapped default export", "export default (() => 1) satisfies () => number;", 1],
+	["a doubly wrapped function", "const run = (() => 1) as unknown as Run;", 1],
+	["a triply wrapped function", "const run = ((() => 1) as unknown as Run) satisfies Run;", 1],
+	["a triply wrapped default export", "export default ((() => 1) as unknown as Run) satisfies Run;", 1],
 	["an arrow with satisfies", "export const count = (() => 1) satisfies () => number;", 1],
 	["a function expression with satisfies", "const count = (function () { return 1; }) satisfies () => number;", 1],
 	["an arrow with as", "const count = (() => 1) as () => number;", 1],
@@ -24,6 +28,7 @@ test.each([
 	["a typed function reference", "function fn() { return 1; } export const count: () => number = fn;", 0],
 	["a local closure", "function run() { const exists = () => true; }", 0],
 	["a wrapped local closure", "function run() { const exists = (() => true) satisfies () => boolean; }", 0],
+	["a wrapped object holding a function", "const options = { run: () => 1 } satisfies Options;", 0],
 	["an inline callback", "register(() => {});", 0],
 ])("checks module function syntax for %s", async (_kind, source, count) => {
 	const results = await eslint.lintText(source, { filePath: "src/module-function-example.ts" });

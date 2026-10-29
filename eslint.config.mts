@@ -6,20 +6,54 @@ import globals from "globals";
 import type { Options } from "prettier";
 import manifest from "./package.json" with { type: "json" };
 import { documentationConfig } from "./scripts/lint/jsdoc-config.mts";
-import { importBoundaries, vitestImportCalls } from "./scripts/lint/import-boundaries.mts";
+import { fileName } from "./scripts/lint/file-name.mts";
+import { importBoundaries, VITEST_IMPORT_CALLS } from "./scripts/lint/import-boundaries.mts";
+
+/** Entry files that may re-export a library's API by name. */
+const libraryEntries = ["packages/*/src/index.ts"];
+
+/** Syntax refused in every file, including library entry files. */
+const restrictedSyntax = [
+	{
+		selector: "ImportExpression[source.type!='Literal']",
+		message: "Use a literal import so lint can resolve and enforce its boundary.",
+	},
+	{
+		selector: `${VITEST_IMPORT_CALLS}:not([arguments.0.type='Literal'][arguments.0.value=type(string)])`,
+		message: "Use a string literal target so lint can resolve and enforce its boundary.",
+	},
+	{
+		selector:
+			":matches(:matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration, ExportDefaultDeclaration) [type=/^(FunctionExpression|ArrowFunctionExpression)$/]:not(:matches(:matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration, ExportDefaultDeclaration) :not(VariableDeclarator, [type=/^TS(As|Satisfies|NonNull)Expression$/]) [type=/^(FunctionExpression|ArrowFunctionExpression)$/])",
+		message: "Write a function declaration for a module-level function.",
+	},
+	{
+		selector: "ArrowFunctionExpression > BlockStatement.body[body.length=1] > ExpressionStatement",
+		message: "Use an expression body for a single-statement arrow function.",
+	},
+	{
+		selector: "ExportNamedDeclaration:not([source])[specifiers.length>0]",
+		message: "Export a name on its declaration, not in a list.",
+	},
+	{
+		selector: "ExportAllDeclaration",
+		message: "Do not export *; a library's entry file names what it re-exports, and no other file re-exports.",
+	},
+];
 
 /** Read optional formatter settings alongside the required print width. */
 const prettierOptions: Options = manifest.prettier;
 
-/** Combine type-aware checks with documentation and member-order rules. */
+/** Combine type-aware checks with documentation, naming and module conventions. */
 export default defineConfig(
 	{ ignores: ["dist/", "coverage/", "reports/", ".stryker-tmp/"] },
 	eslint.configs.recommended,
 	tseslint.configs.strictTypeChecked,
 	tseslint.configs.stylisticTypeChecked,
 	{
-		plugins: { "@stylistic": stylistic },
+		plugins: { "@stylistic": stylistic, local: { rules: { "file-name": fileName } } },
 		rules: {
+			"local/file-name": "error",
 			"@stylistic/max-len": [
 				"error",
 				{
@@ -38,6 +72,27 @@ export default defineConfig(
 				},
 			],
 			"@typescript-eslint/member-ordering": "error",
+			"@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+			"@typescript-eslint/naming-convention": [
+				"error",
+				{
+					selector: "default",
+					format: ["strictCamelCase"],
+					leadingUnderscore: "forbid",
+					trailingUnderscore: "forbid",
+				},
+				{ selector: "typeLike", format: ["StrictPascalCase"] },
+				{ selector: "import", format: ["strictCamelCase", "StrictPascalCase"] },
+				{ selector: "parameter", modifiers: ["unused"], format: ["strictCamelCase"], leadingUnderscore: "allow" },
+				{ selector: ["objectLiteralProperty", "objectLiteralMethod"], format: null },
+				{ selector: ["variable", "parameter"], modifiers: ["destructured"], filter: ".*", format: null },
+				{ selector: "variable", modifiers: ["const", "global"], types: ["boolean", "string", "number"], format: ["UPPER_CASE"] },
+				{
+					selector: ["property", "method", "accessor"],
+					modifiers: ["requiresQuotes"],
+					format: null,
+				},
+			],
 			"arrow-body-style": ["error", "as-needed"],
 			"one-var": ["error", "never"],
 			"max-params": ["error", 3],
@@ -55,32 +110,27 @@ export default defineConfig(
 					allowRegExp: false,
 				},
 			],
-			"no-restricted-syntax": [
-				"error",
-				{
-					selector: "ImportExpression[source.type!='Literal']",
-					message: "Use a literal import so lint can resolve and enforce its boundary.",
-				},
-				{
-					selector: `${vitestImportCalls}:not([arguments.0.type='Literal'][arguments.0.value=type(string)])`,
-					message: "Use a string literal target so lint can resolve and enforce its boundary.",
-				},
-				{
-					selector:
-						":matches(:matches(Program, TSModuleBlock, ExportNamedDeclaration) > VariableDeclaration > VariableDeclarator > :matches(FunctionExpression, ArrowFunctionExpression, :matches(TSSatisfiesExpression, TSAsExpression, TSNonNullExpression)[expression.type=/^(FunctionExpression|ArrowFunctionExpression)$/]).init, ExportDefaultDeclaration > :matches(FunctionExpression, ArrowFunctionExpression).declaration)",
-					message: "Write a function declaration for a module-level function.",
-				},
-				{
-					selector: "ArrowFunctionExpression > BlockStatement.body[body.length=1] > ExpressionStatement",
-					message: "Use an expression body for a single-statement arrow function.",
-				},
-			],
+			"no-restricted-syntax": ["error", ...restrictedSyntax],
 		},
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
 				tsconfigRootDir: import.meta.dirname,
 			},
+		},
+	},
+	{
+		name: "re-exports",
+		ignores: libraryEntries,
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				...restrictedSyntax,
+				{
+					selector: "ExportNamedDeclaration[source]",
+					message: "Do not re-export; import each name from the file that declares it. Only a library's entry file re-exports.",
+				},
+			],
 		},
 	},
 	{
