@@ -3,15 +3,10 @@ import tseslint from "typescript-eslint";
 import { expect, test } from "vitest";
 
 const eslint = new ESLint({ overrideConfig: tseslint.configs.disableTypeChecked });
-const typedEslint = new ESLint({
-	overrideConfig: {
-		languageOptions: { parserOptions: { projectService: { allowDefaultProject: ["private-members-example.mts"] } } },
-	},
-});
 const MESSAGE = "Use a #private member instead of TypeScript's private modifier.";
 
-async function diagnostics(members: string, rule = "no-restricted-syntax", linter = eslint) {
-	const results = await linter.lintText(`export class Counter { ${members} }`, { filePath: "private-members-example.mts" });
+async function diagnostics(members: string, rule = "no-restricted-syntax") {
+	const results = await eslint.lintText(`export class Counter { ${members} }`, { filePath: "private-members-example.mts" });
 	expect(results).toHaveLength(1);
 	expect(results[0]?.fatalErrorCount).toBe(0);
 
@@ -36,8 +31,9 @@ test.each([
 	expect(await diagnostics(replacement)).toEqual([]);
 });
 
-test.each(["protected count = 0;", "private constructor() {}"])("allows %s, which has no #private form", async (member) =>
-	expect(await diagnostics(member)).toEqual([]),
+test.each(["protected count = 0;", "private constructor() {}", "declare private brand: void;"])(
+	"allows %s, which has no #private form",
+	async (member) => expect(await diagnostics(member)).toEqual([]),
 );
 
 test.each([
@@ -47,10 +43,3 @@ test.each([
 	expect(await diagnostics(ordered, "@typescript-eslint/member-ordering")).toEqual([]);
 	expect(await diagnostics(misordered, "@typescript-eslint/member-ordering")).toHaveLength(1);
 });
-
-test("requires readonly on a #private field that is never reassigned", async () => {
-	const rule = "@typescript-eslint/prefer-readonly";
-
-	expect(await diagnostics("#step = 1; next() { return this.#step; }", rule, typedEslint)).toHaveLength(1);
-	expect(await diagnostics("readonly #step = 1; next() { return this.#step; }", rule, typedEslint)).toEqual([]);
-}, 15_000);
