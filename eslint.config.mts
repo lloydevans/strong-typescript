@@ -39,6 +39,11 @@ const restrictedSyntax = [
 		selector: "ExportAllDeclaration",
 		message: "Do not export *; a library's entry file names what it re-exports, and no other file re-exports.",
 	},
+	// A constructor has no #private form, so it may keep the modifier.
+	{
+		selector: "[accessibility='private']:not([kind='constructor'])",
+		message: "Use a #private member instead of TypeScript's private modifier.",
+	},
 ];
 
 /** Read optional formatter settings alongside the required print width. */
@@ -72,6 +77,7 @@ export default defineConfig(
 				},
 			],
 			"@typescript-eslint/member-ordering": "error",
+			"@typescript-eslint/prefer-readonly": "error",
 			"@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
 			"@typescript-eslint/naming-convention": [
 				"error",
