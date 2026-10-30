@@ -39,6 +39,11 @@ const restrictedSyntax = [
 		selector: "ExportAllDeclaration",
 		message: "Do not export *; a library's entry file names what it re-exports, and no other file re-exports.",
 	},
+	// A constructor has no #private form, and a declare field emits nothing to make private, so both may keep the modifier.
+	{
+		selector: "[accessibility='private']:not([kind='constructor']):not([declare=true])",
+		message: "Use a #private member instead of TypeScript's private modifier.",
+	},
 ];
 
 /** Read optional formatter settings alongside the required print width. */

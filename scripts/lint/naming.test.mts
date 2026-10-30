@@ -75,6 +75,16 @@ test.each([
 });
 
 test.each([
+	["export class Counter { #maxCount = 3; read() { return this.#maxCount; } }", "#MaxCount", "doesNotMatchFormat"],
+	["export class Counter { read() { return this.#count(); } #count() { return 1; } }", "#_count", "unexpectedUnderscore"],
+])("checks a #private name like any other member: %s", async (source, renamed, messageId) => {
+	expect(await diagnostics(source)).toEqual([]);
+	expect(await diagnostics(source.replaceAll(/#\w+/g, renamed))).toEqual([
+		{ ruleId: "@typescript-eslint/naming-convention", messageId },
+	]);
+});
+
+test.each([
 	['export const headers = { ContentType: "text/plain" };', "export interface Headers { ContentType: string; }"],
 	['export const headers = { ContentType() { return "text/plain"; } };', "export interface Headers { ContentType(): string; }"],
 ])("exempts object literal keys but checks declared members: %s", async (source, declaration) => {

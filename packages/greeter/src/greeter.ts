@@ -69,17 +69,17 @@ export const namesOnlyStyle: GreetingStyle = {
 /** Address one or more recipients using a chosen presentation style. */
 export class Greeter {
 	/** The opening word shared by every greeting. */
-	private readonly prefix = DEFAULT_PREFIX;
+	readonly #prefix = DEFAULT_PREFIX;
 
 	/** The formatting policy for recipient names and messages. */
-	private readonly style: GreetingStyle;
+	readonly #style: GreetingStyle;
 
 	/**
 	 * Choose how recipient names and messages are presented.
 	 * @param style - The formatting policy used for every call.
 	 */
 	constructor(style: GreetingStyle = plainStyle) {
-		this.style = style;
+		this.#style = style;
 	}
 
 	/**
@@ -89,12 +89,12 @@ export class Greeter {
 	 * @throws When any normalized name is blank.
 	 */
 	greet(names: Recipients = "World") {
-		const normalized = toList(names).map((name) => this.style.normalize(name));
+		const normalized = toList(names).map((name) => this.#style.normalize(name));
 		if (normalized.some((name) => name.trim() === "")) {
 			throw new Error("Recipient must not be blank");
 		}
 
-		return this.style.join(normalized.map((name) => this.style.format(this.prefix, name)));
+		return this.#style.join(normalized.map((name) => this.#style.format(this.#prefix, name)));
 	}
 }
 
