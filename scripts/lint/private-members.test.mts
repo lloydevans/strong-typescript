@@ -31,7 +31,7 @@ test.each([
 	expect(await diagnostics(replacement)).toEqual([]);
 });
 
-test.each(["protected count = 0;", "private constructor() {}", "declare private brand: void;"])(
+test.each(["protected count = 0;", "private constructor() {}", "declare private brand: never;"])(
 	"allows %s, which has no #private form",
 	async (member) => expect(await diagnostics(member)).toEqual([]),
 );
